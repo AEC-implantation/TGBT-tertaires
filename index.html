@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEC — Chiffrage TGBT tertiaire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style id="aec-style">
+  :root{
+    --violet:#7B2D8B; --violet-d:#5a1f68; --violet-l:#f3e9f7; --lime:#C5D86D;
+    --red:#C62828; --red-l:#FFF0F0; --orange:#8a3a00; --orange-l:#fdf0e8;
+    --green:#1b5e20; --green-l:#e8f5e9; --gold:#C8A951;
+    --bg:#F4F0F6; --dark:#1A1A1A; --grey:#6b6b6b; --border:#D0C0D8;
+    --radius:14px; --shadow:0 4px 20px rgba(123,45,139,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--dark);min-height:100vh;padding-bottom:96px}
+
+  .app-header{background:var(--violet);padding:14px 16px 10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.18)}
+  .hdr{display:flex;align-items:center;gap:12px;max-width:900px;margin:0 auto}
+  .logo{background:#fff;color:var(--violet);font:800 22px 'Syne',sans-serif;padding:2px 10px;border-radius:6px;letter-spacing:1px;position:relative}
+  .logo i{position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--lime)}
+  .hdr h1{font:800 17px 'Syne',sans-serif;color:#fff;line-height:1.15}
+  .hdr .sub{font-size:10.5px;color:rgba(255,255,255,.78);margin-top:2px}
+  .hdr .ref{font:500 10.5px 'DM Mono',monospace;color:#fff;margin-top:3px}
+
+  .tab-bar{display:flex;gap:6px;padding:12px 14px 6px;overflow-x:auto;scrollbar-width:none;max-width:900px;margin:0 auto}
+  .tab-bar::-webkit-scrollbar{display:none}
+  .tab-btn{flex-shrink:0;position:relative;background:#fff;border:2px solid var(--border);border-radius:20px;padding:8px 13px;font:600 12.5px 'DM Sans',sans-serif;color:var(--violet);cursor:pointer;margin-top:6px}
+  .tab-btn.active{background:var(--violet);border-color:var(--violet);color:#fff}
+  .tab-btn.ok::after{content:'✓';margin-left:5px;color:var(--green);font-weight:800}
+  .tab-btn.active.ok::after{color:var(--lime)}
+  .tab-btn .dot{position:absolute;top:-8px;right:-4px;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;display:none}
+  .tab-btn.has-err .dot{display:block}
+
+  .content{padding:6px 14px;max-width:900px;margin:0 auto}
+  .tab-content{display:none}.tab-content.active{display:block}
+  .card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden;border:1px solid rgba(123,45,139,.08)}
+  .card-title{background:var(--violet);color:#fff;font:700 13px 'Syne',sans-serif;padding:10px 14px;letter-spacing:.4px}
+  .body{padding:14px 12px;display:flex;flex-direction:column;gap:16px}
+
+  .lbl{display:block;font-size:11px;font-weight:700;color:var(--violet);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+  .req{color:var(--red)}
+  .field input[type=text],.field input[type=tel],.field input[type=email],.field input[type=number],.field input[type=date],.field select,.field textarea{
+    width:100%;border:2px solid var(--border);border-radius:10px;padding:10px 12px;font:15px 'DM Sans',sans-serif;background:#fff;color:var(--dark);outline:none;-webkit-appearance:none;appearance:none}
+  .field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237B2D8B'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--violet)}
+  .field textarea{min-height:80px;resize:vertical}
+  .hint{font-size:11px;color:var(--grey);margin-top:5px;line-height:1.4}
+  .err-msg{display:none;color:var(--red);font-size:11.5px;font-weight:600;margin-top:5px}
+  .field.invalid>.err-msg{display:block}
+  .field.invalid>input,.field.invalid>select,.field.invalid>textarea{border-color:var(--red);background-color:var(--red-l)}
+  .field.invalid>.choices{outline:2px solid var(--red);outline-offset:4px;border-radius:10px}
+
+  .choices{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  .choice{position:relative;display:flex;align-items:center;gap:8px;background:var(--violet-l);border:2px solid transparent;border-radius:10px;padding:10px 11px;cursor:pointer;font-size:12.5px;font-weight:600;user-select:none}
+  .choice input{position:absolute;opacity:0;pointer-events:none}
+  .choice .mk{width:18px;height:18px;border:2px solid var(--c,var(--violet));background:#fff;flex-shrink:0;border-radius:5px;display:flex;align-items:center;justify-content:center}
+  .choice.radio .mk{border-radius:50%}
+  .choice .t{color:var(--c,var(--dark));line-height:1.2}
+  .choice.on{border-color:var(--c,var(--violet));background:var(--cb,#e3cdf0)}
+  .choice.on .mk{background:var(--c,var(--violet))}
+  .choice.on .mk::after{content:'✓';color:#fff;font-size:11px;font-weight:700}
+
+  /* Départs */
+  .sub-title{font:700 12px 'Syne',sans-serif;color:var(--violet);text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--violet-l);padding-bottom:6px}
+  .dep-list{display:flex;flex-direction:column;gap:10px}
+  .dep-row{border:2px solid var(--border);border-radius:12px;padding:10px;background:#fff;transition:all .15s}
+  .dep-row.active{border-color:var(--violet);background:#fcf8fd}
+  .dep-row.invalid{border-color:var(--red)}
+  .dep-top{display:flex;align-items:center;gap:10px}
+  .dep-name{flex:1;font-weight:700;font-size:13.5px;line-height:1.25}
+  .dep-name small{display:block;font-weight:500;font-size:11px;color:var(--grey);margin-top:2px}
+  .dep-name input{width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 10px;font:600 14px 'DM Sans',sans-serif;outline:none}
+  .stepper{display:flex;align-items:center;gap:4px;flex-shrink:0}
+  .stepper button{width:38px;height:38px;border:2px solid var(--violet);background:#fff;color:var(--violet);font:700 20px 'DM Sans',sans-serif;border-radius:10px;cursor:pointer;line-height:1}
+  .stepper input{width:54px!important;text-align:center;padding:8px 2px!important;font:700 16px 'DM Mono',monospace!important}
+  .dep-detail{display:none;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .dep-row.active .dep-detail,.dep-row.free .dep-detail{display:grid}
+  .dep-detail .span3{grid-column:1/-1}
+  .dep-detail .lbl{font-size:10px;margin-bottom:4px}
+  .dep-detail .field select,.dep-detail .field input{font-size:13px;padding:8px 26px 8px 8px}
+  .dep-detail .field input{padding:8px}
+  .field.invalid .stepper input,.field.invalid .dep-name input,.dep-name.invalid input{border-color:var(--red);background:var(--red-l)}
+  .dep-total{font:700 13px 'DM Mono',monospace;color:var(--violet);text-align:right}
+  .mini.del{border:1.5px solid var(--red);background:#fff;color:var(--red);border-radius:8px;padding:6px 9px;font:600 11.5px 'DM Sans',sans-serif;cursor:pointer;flex-shrink:0}
+  .btn-add{border:2px dashed var(--violet);background:#fff;color:var(--violet);border-radius:12px;padding:13px;font:700 14px 'DM Sans',sans-serif;cursor:pointer;width:100%}
+  #dep-empty.invalid>.err-msg{display:block}
+
+  .note{margin:0 0 12px;background:#fff8e1;border-left:3px solid var(--gold);border-radius:8px;padding:9px 12px;font-size:12px;color:#6b5000;line-height:1.5}
+  .status{border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5}
+  .status ul{padding-left:18px;margin-top:4px}
+  .status-err{background:var(--red-l);color:var(--red);border:1px solid #f3c2c2}
+  .status-warn{background:var(--orange-l);color:var(--orange);border:1px solid #f1cfb4}
+  .status-ok{background:var(--green-l);color:var(--green);border:1px solid #c8e6c9;font-weight:600}
+  pre#recap-text{white-space:pre-wrap;word-break:break-word;font:11.5px/1.55 'DM Mono',monospace;background:#faf7fb;border:1px solid var(--border);border-radius:10px;padding:12px}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn-sec{border:2px solid var(--violet);background:#fff;color:var(--violet);border-radius:12px;padding:11px;font:700 13px 'DM Sans',sans-serif;cursor:pointer}
+  .btn-sec.danger{border-color:var(--red);color:var(--red)}
+  .footer-aec{text-align:center;font-size:10.5px;color:var(--grey);padding:4px 0 14px;line-height:1.5}
+
+  .nav-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 14px;background:rgba(244,240,246,.96);backdrop-filter:blur(10px);border-top:1px solid var(--border);z-index:200}
+  .nav-inner{display:flex;gap:10px;max-width:900px;margin:0 auto}
+  .btn-prev{flex:0 0 64px;border:2px solid var(--violet);background:#fff;color:var(--violet);border-radius:14px;font:700 18px 'DM Sans',sans-serif;cursor:pointer}
+  .btn-prev:disabled{opacity:.35}
+  .btn-next{flex:1;padding:15px;background:var(--violet);border:none;border-radius:14px;font:700 16px 'Syne',sans-serif;color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(123,45,139,.35)}
+  .btn-next:active,.btn-prev:active{transform:scale(.97)}
+
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dark);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:300;max-width:92vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* Fenêtres internes (remplacent confirm(), bloqué dans certains aperçus) */
+  .modal-bg{position:fixed;inset:0;background:rgba(26,10,32,.55);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .modal h3{background:var(--violet);color:#fff;font:700 15px 'Syne',sans-serif;padding:12px 16px}
+  .modal .m-body{padding:14px 16px;font-size:13.5px;line-height:1.5;display:flex;flex-direction:column;gap:10px}
+  .modal .m-body ul{padding-left:18px}
+  .modal .m-actions{display:flex;flex-direction:column;gap:8px;padding:0 16px 16px}
+  .m-btn{display:block;text-align:center;text-decoration:none;border:2px solid var(--violet);background:#fff;color:var(--violet);border-radius:12px;padding:12px;font:700 14px 'DM Sans',sans-serif;cursor:pointer}
+  .m-btn.primary{background:var(--violet);color:#fff}
+  .m-btn.ghost{border-color:var(--border);color:var(--grey)}
+  .m-step{background:var(--violet-l);border-radius:10px;padding:10px 12px}
+  .m-step b{color:var(--violet)}
+  .nojs{max-width:900px;margin:14px auto;padding:14px 16px;background:#fff8e1;border-left:4px solid var(--gold);border-radius:10px;font-size:14px;line-height:1.5;color:#4a3a00}
+  .nojs pre{white-space:pre-wrap;font:12px/1.5 'DM Mono',monospace;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:10px;color:var(--dark)}
+  .err-banner{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--red);color:#fff;padding:10px 14px;font-size:13px;font-weight:600}
+  @media print{
+    body{background:#fff;padding:0}
+    .app-header{position:static;box-shadow:none}
+    .tab-bar,.nav-bar,.btn-row,#recap-status,.toast,.footer-aec{display:none!important}
+    .tab-content{display:none!important}#tab-recap{display:block!important}
+    .card{box-shadow:none;border:none}
+    pre#recap-text{border:none;background:#fff;font-size:10.5px}
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="hdr">
+    <div class="logo">AEC<i></i></div>
+    <div>
+      <h1>Demande de chiffrage — TGBT tertiaire</h1>
+      <div class="sub">Atelier Électrique de Câblage · Jacou (34) · Millau (12) · 04 99 58 15 72</div>
+      <div class="ref" id="ref-line"></div>
+    </div>
+  </div>
+</div>
+
+<div id="nojs" class="nojs"><b>Ce formulaire a besoin de JavaScript.</b> Si vous lisez ce message, le fichier est affiché dans un aperçu ou un logiciel qui bloque les scripts : enregistrez-le puis ouvrez-le avec Chrome ou Edge (clic droit &gt; Ouvrir avec).</div>
+<div class="tab-bar" id="tab-bar"></div>
+<div class="content" id="content"></div>
+
+<div class="nav-bar">
+  <div class="nav-inner">
+    <button class="btn-prev" id="btn-prev" onclick="goPrev()" aria-label="Section précédente">◀</button>
+    <button class="btn-prev" id="btn-save" onclick="saveJSON()" aria-label="Enregistrer le dossier" title="Enregistrer le dossier">💾</button>
+    <button class="btn-next" id="btn-next" onclick="goNext()">Suivant ▶</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* Éléments d'origine de la page, capturés avant toute construction : servent à fabriquer
+   le fichier « dossier » autonome sans rien embarquer de l'environnement d'affichage. */
+const PAGE_PARTS = {
+  style:  document.getElementById("aec-style").textContent,
+  script: document.currentScript.textContent,
+  header: document.querySelector(".app-header").outerHTML,
+  rest:   ["#tab-bar","#content",".nav-bar","#toast"].map(q=>document.querySelector(q).outerHTML).join("\n"),
+};
+document.getElementById("nojs").style.display="none";
+window.addEventListener("error", e=>{
+  const b=document.createElement("div"); b.className="err-banner";
+  b.textContent="Erreur du formulaire : "+(e.message||"inconnue")+" — merci de transmettre ce message à AEC.";
+  document.body.appendChild(b);
+});
+/* ═════════════════════ CONFIGURATION — à modifier ici uniquement ═════════════════════ */
+const DESTINATAIRES = [
+  { nom: "Christophe", email: "christophe.gordons@sasaec.fr" },
+  { nom: "Olivier",    email: "olivier.montalban@sasaec.fr" },
+  { nom: "Joris",      email: "joris.boniface@sasaec.fr" },
+  { nom: "Laurent",    email: "laurent.mendez.pro@outlook.fr" },
+];
+const BRAND = { Legrand:["#E2000A","#FACCCE"], Hager:["#003DA5","#C5D5F5"], Schneider:["#1B7A2F","#C8E6C9"] };
+const AEC = "À définir par AEC";
+/* Adresse du formulaire en ligne (GitHub Pages). Laisser vide : détectée automatiquement quand le
+   formulaire est ouvert depuis Internet. Sert au lien « iPhone » inscrit dans les dossiers enregistrés. */
+const FORM_URL_CONFIG = "";
+const DELAI_MINI_JOURS = 21;            // alerte si date de besoin plus proche
+const MAILTO_MAX = 1900;                // au-delà, le corps complet passe par le presse-papier
+
+const isBleu  = V => (V.tarif||"").startsWith("Bleu");
+const isJaune = V => (V.tarif||"").startsWith("Jaune");
+const isVert  = V => (V.tarif||"").startsWith("Vert");
+
+/* Chaque champ : id, label, type (text|tel|email|num|int|date|select|radio|check|textarea),
+   req (true | fonction), show (fonction), options, ph, hint, minLen, min, max, check (fonction → message d'erreur) */
+const SECTIONS = [
+ { id:"projet", tab:"1 · Projet", title:"📋 Projet & demandeur", fields:[
+   { id:"chantier", label:"Nom du chantier / affaire", type:"text", req:true, minLen:3, ph:"Ex : Bureaux Le Millénaire — Bât. B" },
+   { id:"ville", label:"Ville du chantier", type:"text", req:true, minLen:2 },
+   { id:"moa", label:"Maître d'ouvrage / client final", type:"text" },
+   { id:"batiment", label:"Type de bâtiment", type:"select", req:true, options:["Bureaux","Commerce","Enseignement","Santé / médical","Hôtellerie / restauration","Autre ERP","Industrie légère","Logistique / entrepôt","Collectivité","Autre"] },
+   { id:"erp", label:"Établissement recevant du public (ERP)", type:"radio", req:true, options:["Oui","Non","Ne sait pas"] },
+   { id:"entreprise", label:"Entreprise d'électricité", type:"text", req:true, minLen:2 },
+   { id:"contact", label:"Nom du contact", type:"text", req:true, minLen:2 },
+   { id:"tel", label:"Téléphone du contact", type:"tel", req:true, ph:"06 12 34 56 78" },
+   { id:"email", label:"E-mail du contact", type:"email", req:true, ph:"nom@entreprise.fr" },
+   { id:"ref_client", label:"Référence affaire de l'entreprise", type:"text" },
+   { id:"marque", label:"Marque du matériel", type:"radio", req:true, options:["Legrand","Hager","Schneider","Indifférent — AEC propose"] },
+   { id:"qte", label:"Nombre de TGBT identiques", type:"int", req:true, min:1, max:20, ph:"1" },
+   { id:"dest", label:"Interlocuteur AEC destinataire", type:"select", req:true, options:DESTINATAIRES.map(d=>d.nom) },
+ ]},
+ { id:"alim", tab:"2 · Alimentation", title:"🔌 Alimentation & réseau", fields:[
+   { id:"tarif", label:"Tarif / type de raccordement", type:"radio", req:true, options:["Bleu (≤ 36 kVA)","Jaune (36 à 250 kVA)","Vert (> 250 kVA)"] },
+   { id:"puissance", label:"Puissance souscrite ou disponible (kVA)", type:"num", req:true, ph:"Ex : 120",
+     check:(v,V)=>{ const p=Number(v);
+       if (isBleu(V) && p>36) return "Incohérent : le tarif bleu est limité à 36 kVA.";
+       if (isJaune(V) && (p<=36 || p>250)) return "Incohérent : tarif jaune = de 36 à 250 kVA.";
+       if (isVert(V) && p<=250) return "Incohérent : tarif vert = au-delà de 250 kVA.";
+       if (V.tension==="230 V mono" && p>12) return "Incohérent : 12 kVA maximum en monophasé.";
+     } },
+   { id:"transfo", label:"Puissance du transformateur HTA/BT (kVA)", type:"select", req:V=>isVert(V), show:V=>isVert(V), options:["250","400","630","800","1000","1250","1600","2000","2500","Inconnue — AEC estime"] },
+   { id:"tension", label:"Tension d'alimentation", type:"radio", req:true, options:["400 V tri + N","400 V tri sans N","230 V mono"],
+     check:(v,V)=> (v==="230 V mono" && (isJaune(V)||isVert(V))) ? "Incohérent : tarif jaune/vert = alimentation triphasée." : "" },
+   { id:"regime", label:"Régime de neutre", type:"radio", req:true, options:["TT","TN-S","TN-C","TN-C-S","IT","Ne sait pas"] },
+   { id:"icc", label:"Courant de court-circuit présumé (Icc) en tête du TGBT", type:"select", req:true, options:["≤ 6 kA","10 kA","15 kA","25 kA","36 kA","50 kA","> 50 kA","Inconnu — AEC estime"],
+     hint:"Conditionne le pouvoir de coupure de tous les appareils. Le demander au bureau d'études ou au gestionnaire de réseau." },
+   { id:"cable_arr", label:"Câble d'arrivée (nombre × section, cuivre ou alu)", type:"text", req:true, ph:"Ex : 4 × 95² Alu — ou « Inconnu »" },
+   { id:"fourn_tete", label:"Disjoncteur de tête : fourniture", type:"radio", req:true, options:["Fourni et monté par AEC","Fourni et monté par l'électricien (hors AEC)","Existant / conservé (hors AEC)"], hint:"AEC ne monte pas un disjoncteur de tête fourni par le client." },
+   { id:"marque_tete", label:"Marque du disjoncteur de tête", type:"radio", req:true, options:["Même marque que le TGBT","Legrand","Hager","Schneider","ABB","Socomec","Autre","Indifférent — AEC propose"] },
+   { id:"marque_tete_autre", label:"Préciser la marque", type:"text", req:V=>V.marque_tete==="Autre", show:V=>V.marque_tete==="Autre", minLen:2 },
+   { id:"sens_arr", label:"Arrivée des câbles", type:"radio", req:true, options:["Par le haut","Par le bas","Mixte"] },
+   { id:"secours", label:"Source de secours", type:"radio", req:true, options:["Aucune","Groupe électrogène","2ᵉ arrivée réseau","Onduleur (ASI)"] },
+   { id:"inverseur", label:"Inverseur de sources", type:"radio", req:V=>V.secours && V.secours!=="Aucune", show:V=>V.secours && V.secours!=="Aucune", options:["Manuel","Automatique",AEC] },
+   { id:"pv", label:"Production photovoltaïque", type:"radio", req:true, options:["Non","Oui — existante","Oui — prévue","Ne sait pas"] },
+   { id:"pv_kwc", label:"Puissance photovoltaïque (kWc)", type:"num", req:V=>/^Oui/.test(V.pv), show:V=>/^Oui/.test(V.pv), ph:"Ex : 36" },
+   { id:"pv_mode", label:"Mode d'exploitation", type:"radio", req:V=>/^Oui/.test(V.pv), show:V=>/^Oui/.test(V.pv), options:["Autoconsommation totale","Autoconsommation + vente du surplus","Vente totale","Ne sait pas"] },
+   { id:"pv_inj", label:"Raccordement de la production", type:"radio", req:V=>/^Oui/.test(V.pv), show:V=>/^Oui/.test(V.pv), options:["Départ dédié dans le TGBT","Place à réserver dans le TGBT","Hors TGBT",AEC] },
+   { id:"compensation", label:"Compensation d'énergie réactive", type:"radio", req:V=>isJaune(V)||isVert(V), show:V=>isJaune(V)||isVert(V), options:["Non","Batterie fixe","Batterie automatique","À étudier par AEC"] },
+ ]},
+ { id:"env", tab:"3 · Enveloppe", title:"🗄️ Enveloppe", fields:[
+   { id:"enveloppe", label:"Type d'enveloppe", type:"radio", req:true, options:["Coffret mural","Coffret mural + gaine à câbles","Armoire au sol","Armoire au sol + gaine à câbles","Armoire extensible (colonnes)",AEC], hint:"Exemples avec gaine à câbles latérale : Schneider PrismaSeT G, Legrand XL³." },
+   { id:"matiere", label:"Matière", type:"radio", req:true, options:["Métal","Isolant / polyester","Indifférent"] },
+   { id:"emplacement", label:"Emplacement", type:"radio", req:true, options:["Local technique dédié","Circulation / accès public","Extérieur","Autre"] },
+   { id:"ip", label:"Indice de protection minimum", type:"select", req:true, options:["IP30","IP31","IP43","IP55","IP65",AEC] },
+   { id:"ik", label:"Résistance aux chocs", type:"select", req:true, options:["IK07","IK08","IK10","Indifférent"] },
+   { id:"porte", label:"Porte", type:"radio", req:true, options:["Pleine","Vitrée","Sans porte"] },
+   { id:"serrure", label:"Fermeture", type:"radio", req:true, options:["Clé standard","Cylindre / clé spécifique","Sans serrure"] },
+   { id:"reserve", label:"Réserve de place disponible", type:"select", req:true, options:["0 %","20 %","30 %","40 % et plus"] },
+   { id:"dim_max", label:"Place disponible pour le TGBT (H × L × P en mm)", type:"text", req:true, def:"Aucune contrainte", ph:"Ex : 2000 × 800 × 400" },
+   { id:"ral", label:"Teinte", type:"text", ph:"RAL 7035 (standard)" },
+ ]},
+ { id:"tete", tab:"4 · Tête & fonctions", title:"⚡ Appareil de tête, fonctions & raccordement", fields:[
+   { id:"tete_type", label:"Appareil de tête", type:"radio", req:true, options:["Interrupteur-sectionneur","Disjoncteur boîtier moulé","Disjoncteur ouvert",AEC] },
+   { id:"tete_cal", label:"Calibre de l'appareil de tête (A)", type:"num", req:V=>V.tete_type && V.tete_type!==AEC, show:V=>V.tete_type && V.tete_type!==AEC, ph:"Ex : 250" },
+   { id:"tete_pol", label:"Polarité de l'appareil de tête", type:"radio", req:true, options:["3P","4P",AEC] },
+   { id:"tete_diff", label:"Protection différentielle en tête", type:"radio", req:true, options:["Non","300 mA","500 mA","Réglable / retardée",AEC] },
+   { id:"pdc_dep", label:"Pouvoir de coupure des disjoncteurs de départ", type:"radio", req:true, options:["AEC dimensionne selon l'Icc","6 kA","10 kA","15 kA","25 kA"] },
+   { id:"au", label:"Coupure d'urgence à distance", type:"radio", req:true, options:["Non","Bobine à émission (MX)","Bobine à manque de tension (MN)"] },
+   { id:"parafoudre", label:"Parafoudre", type:"radio", req:true, options:["Non","Type 1","Type 2","Type 1 + 2",AEC], hint:"Exigé par la NF C 15-100 dans plusieurs cas (bâtiment équipé de paratonnerre, notamment)." },
+   { id:"comptage", label:"Besoin de comptage", type:"check", req:true, exclusive:["Aucun"], options:["Aucun","Comptage général (centrale de mesure)","Comptage par circuit / par usage","Compteurs MID (refacturation)","Communication Modbus / IP"], hint:"Décret tertiaire / décret BACS : vérifier les besoins de comptage par usage. Si comptage par circuit ou MID : les circuits à compter se choisissent dans l'onglet Départs." },
+   { id:"tcde_baes", label:"Télécommande de mise au repos des BAES", type:"radio", req:true, options:["Non","Oui — dans le TGBT","Oui — hors TGBT (non fournie par AEC)",AEC] },
+   { id:"gtc", label:"Report vers GTC / GTB", type:"radio", req:true, options:["Non","Contacts secs (états / défauts)","Bus de communication (Modbus, KNX…)"] },
+   { id:"commande", label:"Fonctions de commande", type:"check", req:true, exclusive:["Aucune"], options:["Aucune","Contacteurs","Télérupteurs","Horloges / programmateurs","Délestage","Interrupteur crépusculaire"] },
+   { id:"signal", label:"Signalisation en façade", type:"radio", req:true, options:["Aucune","Voyants présence tension","Voyants + signalisation défauts"] },
+   { id:"raccord", label:"Raccordement des câbles de départ", type:"radio", req:true, options:["Sur bornier (bornes de sortie)","Directement sur les disjoncteurs de départ","Mixte",AEC] },
+   { id:"raccord_mixte", label:"Préciser le raccordement mixte", type:"text", req:V=>V.raccord==="Mixte", show:V=>V.raccord==="Mixte", ph:"Ex : bornier jusqu'à 16 A, sur disjoncteur au-delà" },
+   { id:"jdb", label:"Jeu de barres de distribution", type:"radio", req:true, options:["Non — répartiteur / peignes","Oui — en fond d'armoire","Oui — dans la colonne à câbles",AEC] },
+   { id:"jdb_int", label:"Intensité du jeu de barres", type:"select", req:V=>/^Oui/.test(V.jdb), show:V=>/^Oui/.test(V.jdb), options:["160 A","250 A","400 A","630 A","800 A","1000 A","1250 A","1600 A",AEC] },
+ ]},
+ { id:"departs", tab:"5 · Départs", title:"🔀 Liste des départs", custom:true },
+ { id:"livr", tab:"6 · Livrables", title:"📦 Documents & logistique", fields:[
+   { id:"schema", label:"Schéma unifilaire", type:"radio", req:true, options:["Fourni (joint au mail)","Fourni ultérieurement","Non — AEC établit le schéma"] },
+   { id:"cctp", label:"CCTP / descriptif du lot électricité", type:"radio", req:true, options:["Fourni (joint au mail)","Non disponible"] },
+   { id:"docs", label:"Documents attendus à la livraison", type:"check", req:true, exclusive:["Aucun"], options:["Aucun","Schéma unifilaire","Plan de façade / implantation","Carnet de câblage","Rapport d'essais NF EN 61439","Dossier DOE"] },
+   { id:"controle", label:"Bureau de contrôle sur l'affaire", type:"radio", req:true, options:["Oui","Non","Ne sait pas"] },
+   { id:"livraison", label:"Mode de livraison", type:"radio", req:true, options:["Enlèvement atelier de Jacou","Enlèvement atelier de Millau","Livraison sur chantier"] },
+   { id:"adr_livr", label:"Adresse et contraintes de livraison", type:"text", req:V=>V.livraison==="Livraison sur chantier", show:V=>V.livraison==="Livraison sur chantier", ph:"Adresse, accès, moyen de déchargement" },
+   { id:"date_besoin", label:"Date de besoin sur chantier", type:"date", req:true },
+   /* EN STAND-BY : AEC ne propose pas encore la mise en service.
+      Pour réactiver la question : supprimer « show:()=>false » et remettre « req:true ». */
+   { id:"mes", label:"Assistance AEC à la mise en service", type:"radio", req:false, show:()=>false, options:["Oui","Non","À chiffrer en option"] },
+   { id:"obs", label:"Observations", type:"textarea", ph:"Contraintes particulières, variantes à chiffrer…" },
+ ]},
+ { id:"recap", tab:"7 · Contrôle", title:"✅ Contrôle avant envoi", custom:true },
+];
+const ORDER = SECTIONS.map(s=>s.id);
+const FIELDS = SECTIONS.flatMap(s => (s.fields||[]).map(f => ({...f, sec:s.id})));
+
+/* ── Départs : catalogue de circuits types (valeurs par défaut modifiables par l'utilisateur) ──
+   cal "" = pas de valeur par défaut → l'utilisateur doit choisir. */
+const CAL_OPTS  = ["2A","6A","10A","16A","20A","25A","32A","40A","50A","63A","80A","100A","125A","160A","200A","250A",AEC];
+const POL_OPTS  = ["1P+N","2P","3P","3P+N","4P"];
+const DIFF_OPTS = ["30 mA tête de groupe","30 mA AC","30 mA A","30 mA F","30 mA B","30 mA Hpi","300 mA","Sans différentiel",AEC];
+const DEP_TYPES = [
+  { k:"ecl",    label:"Éclairage intérieur",                cal:"10A", pol:"1P+N" },
+  { k:"eclext", label:"Éclairage extérieur / parking",      cal:"10A", pol:"1P+N" },
+  { k:"baes",   label:"Éclairage de sécurité (BAES)",       cal:"10A", pol:"1P+N" },
+  { k:"pc",     label:"Prises de courant mono 16 A",        cal:"16A", pol:"1P+N", diff:"30 mA tête de groupe" },
+  { k:"pcinfo", label:"Prises informatiques / bureautique", cal:"16A", pol:"1P+N", diff:"30 mA tête de groupe" },
+  { k:"pctri",  label:"Prises de courant triphasées",       cal:"20A", pol:"3P+N", diff:"30 mA tête de groupe" },
+  { k:"chauf",  label:"Chauffage / climatisation mono",     cal:"20A", pol:"1P+N" },
+  { k:"cvc",    label:"CVC triphasé (PAC, CTA, groupe froid)", cal:"", pol:"3P", hint:"Calibre selon la puissance de l'équipement." },
+  { k:"ecs",    label:"Ballon d'eau chaude",                cal:"20A", pol:"1P+N" },
+  { k:"vmc",    label:"VMC / ventilation",                  cal:"2A",  pol:"1P+N" },
+  { k:"irve7",  label:"Borne IRVE 7 kW mono",               cal:"40A", pol:"1P+N", hint:"Type A si la borne intègre la détection 6 mA continu, sinon type B." },
+  { k:"irve22", label:"Borne IRVE 22 kW tri",               cal:"32A", pol:"3P+N", hint:"Type A si la borne intègre la détection 6 mA continu, sinon type B." },
+  { k:"baie",   label:"Baie informatique / onduleur",       cal:"16A", pol:"1P+N" },
+  { k:"auto",   label:"Portes, volets, stores motorisés",   cal:"10A", pol:"1P+N" },
+  { k:"asc",    label:"Ascenseur / monte-charge",           cal:"",    pol:"3P", hint:"Calibre selon la fiche du fabricant." },
+  { k:"cuis",   label:"Cuisine professionnelle",            cal:"",    pol:"3P+N" },
+  { k:"std",    label:"Sous-tableau / tableau divisionnaire", cal:"",  pol:"3P+N", hint:"Préciser la localisation et le calibre." },
+  { k:"res",    label:"Réserve équipée (disjoncteur posé)", cal:"16A", pol:"1P+N" },
+];
+const DETAIL_FIELDS = [
+  { k:"cal",  label:"Calibre",      type:"select", req:true, options:CAL_OPTS },
+  { k:"pol",  label:"Polarité",     type:"select", req:true, options:POL_OPTS },
+  { k:"diff", label:"Différentiel", type:"select", req:true, def:"Sans différentiel", options:DIFF_OPTS },
+  { k:"cpt",  label:"Comptage", type:"select", req:true, def:"Non", options:["Non","Oui","Oui — MID"], show:V=>cptParCircuit(V) },
+  { k:"pre",  label:"Précision (zones, puissance, localisation…)", type:"text", span3:true, ph:"Facultatif" },
+];
+const cptParCircuit = V => (V.comptage||[]).some(c=>/par circuit|MID/.test(c));
+const calA = s => { const m=String(s||"").match(/^(\d+)A$/); return m?Number(m[1]):0; };
+
+/* ═════════════════════ OUTILS ═════════════════════ */
+const $ = id => document.getElementById(id);
+function el(tag, attrs={}, text=""){
+  const e=document.createElement(tag);
+  for (const k in attrs){ if(k==="class") e.className=attrs[k]; else e.setAttribute(k,attrs[k]); }
+  if (text) e.textContent=text;
+  return e;
+}
+const pad2 = n => String(n).padStart(2,"0");
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),3500); }
+const evalFn = (x, arg) => typeof x==="function" ? !!x(arg) : !!x;
+const isEmpty = v => Array.isArray(v) ? v.length===0 : (v===undefined || v===null || String(v).trim()==="");
+const TODAY = (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d; })();
+
+let REF = "";
+let current = "projet";
+const touched = new Set();   // sections déjà contrôlées → erreurs affichées en direct
+let depUid = 0;
+
+/* ═════════════════════ CONSTRUCTION DE L'INTERFACE ═════════════════════ */
+function makeChoices(container, name, options, type, exclusive=[]){
+  options.forEach(o=>{
+    const lab=el("label",{class:"choice"+(type==="radio"?" radio":"")});
+    if (BRAND[o]) { lab.style.setProperty("--c",BRAND[o][0]); lab.style.setProperty("--cb",BRAND[o][1]); }
+    const inp=el("input",{type, name, value:o});
+    lab.append(inp, el("span",{class:"mk"}), el("span",{class:"t"},o));
+    inp.addEventListener("change",()=>{
+      if (type==="checkbox" && inp.checked){
+        const ex=exclusive.includes(o);
+        container.querySelectorAll("input").forEach(i=>{ if(i!==inp && (ex || exclusive.includes(i.value))) i.checked=false; });
+      }
+      syncChoices(container);
+    });
+    container.appendChild(lab);
+  });
+}
+function syncChoices(container){ container.querySelectorAll("input").forEach(i=>i.closest(".choice").classList.toggle("on",i.checked)); }
+
+function buildControl(f, idAttr){
+  let c;
+  switch (f.type){
+    case "text": case "tel": case "email": case "date":
+      c=el("input",{type:f.type, id:idAttr});
+      if (f.type==="tel") c.setAttribute("inputmode","tel");
+      if (f.type==="email") c.setAttribute("autocomplete","email");
+      break;
+    case "num": case "int":
+      c=el("input",{type:"number", id:idAttr, min:"0", step:f.type==="int"?"1":"any", inputmode:f.type==="int"?"numeric":"decimal"});
+      break;
+    case "select":
+      c=el("select",{id:idAttr}); c.appendChild(new Option("— choisir —",""));
+      f.options.forEach(o=>c.appendChild(new Option(o,o)));
+      break;
+    case "textarea": c=el("textarea",{id:idAttr}); break;
+    case "radio": case "check":
+      c=el("div",{class:"choices", id:idAttr});
+      makeChoices(c, idAttr, f.options, f.type==="radio"?"radio":"checkbox", f.exclusive||[]);
+      break;
+  }
+  if (f.ph && c.tagName!=="DIV") c.placeholder=f.ph;
+  return c;
+}
+function buildField(f, parent, idAttr, extraClass=""){
+  const w=el("div",{class:"field"+(extraClass?" "+extraClass:""), id:"fld-"+idAttr});
+  const isGroup = f.type==="radio" || f.type==="check";
+  const lbl=el(isGroup?"span":"label",{class:"lbl"}, f.label);
+  if (!isGroup) lbl.setAttribute("for", idAttr);
+  const star=el("span",{class:"req"}," *"); lbl.appendChild(star);
+  w.appendChild(lbl);
+  w.appendChild(buildControl(f, idAttr));
+  if (f.hint) w.appendChild(el("div",{class:"hint"}, f.hint));
+  w.appendChild(el("div",{class:"err-msg"}));
+  w._star=star;
+  parent.appendChild(w);
+  if (f.def!==undefined && f.id) { const c=w.querySelector("#"+idAttr); if (c && c.tagName!=="DIV") c.value=f.def; }
+  return w;
+}
+
+function buildUI(){
+  const bar=$("tab-bar"), content=$("content");
+  SECTIONS.forEach(s=>{
+    const b=el("button",{class:"tab-btn", "data-tab":s.id}, s.tab);
+    b.appendChild(el("span",{class:"dot"}));
+    b.addEventListener("click",()=>showTab(s.id));
+    bar.appendChild(b);
+
+    const tc=el("div",{class:"tab-content", id:"tab-"+s.id});
+    const card=el("div",{class:"card"});
+    card.appendChild(el("div",{class:"card-title"}, s.title));
+    const body=el("div",{class:"body", id:"body-"+s.id});
+    card.appendChild(body); tc.appendChild(card);
+    (s.fields||[]).forEach(f=>buildField(f, body, f.id));
+    content.appendChild(tc);
+  });
+
+  // Départs
+  const db=$("body-departs");
+  db.innerHTML = `<div class="note" style="margin:0">Indiquez le <strong>nombre de circuits</strong> par type. Les protections proposées sont modifiables. Tout ce qui n'est pas dans la liste se saisit dans « Autres départs ».</div>
+    <div class="sub-title">Circuits types</div>
+    <div class="dep-list" id="dep-types"></div>
+    <div class="sub-title">Autres départs (saisie libre)</div>
+    <div class="dep-list" id="dep-free"></div>
+    <button class="btn-add" type="button" onclick="addFree()">＋ Ajouter un départ libre</button>
+    <div class="field" id="dep-empty"><div class="err-msg">Au moins un circuit est obligatoire.</div></div>
+    <div class="dep-total" id="dep-total"></div>`;
+  DEP_TYPES.forEach(buildTypeRow);
+
+  // Contrôle
+  $("body-recap").innerHTML = `<div id="recap-status"></div><pre id="recap-text"></pre>
+    <div class="btn-row">
+      <button class="btn-sec" type="button" onclick="copyRecap()">📋 Copier</button>
+      <button class="btn-sec" type="button" onclick="downloadRecap()">⬇️ Télécharger .txt</button>
+      <button class="btn-sec" type="button" onclick="window.print()">🖨️ Imprimer / PDF</button>
+      <button class="btn-sec" type="button" onclick="saveJSON()">💾 Enregistrer le dossier</button>
+      <button class="btn-sec" type="button" onclick="$('import-file').click()">📂 Ouvrir un dossier</button>
+      <button class="btn-sec" type="button" id="btn-share" style="display:none" onclick="shareWithFile()">📎 Envoyer avec pièce jointe</button>
+      <button class="btn-sec danger" type="button" onclick="resetAll()">🗑️ Nouveau dossier</button>
+    </div>
+    <input type="file" id="import-file" accept=".html,.htm,.json,text/html,application/json" style="display:none">
+    <div class="hint">« Enregistrer le dossier » crée un fichier .html qui contient le formulaire et toutes les réponses : un double-clic dessus rouvre le dossier, prêt à être modifié puis réenregistré.</div>`;
+
+  const foot=el("div",{class:"footer-aec"});
+  foot.innerHTML="Les champs marqués <span class='req'>*</span> sont obligatoires : impossible de passer à la section suivante ou d'envoyer sans y répondre.<br>AEC — 8 rue des Frères Lumière, 34830 Jacou · 14 rue Mathieu Prévot, 12100 Millau";
+  content.appendChild(foot);
+}
+
+/* Compteur − [n] + */
+function stepper(id, min){
+  const w=el("div",{class:"field", id:"fld-"+id});
+  const s=el("div",{class:"stepper"});
+  const minus=el("button",{type:"button","aria-label":"Moins"},"−");
+  const inp=el("input",{type:"number", id, min:String(min), step:"1", inputmode:"numeric", value:String(min)});
+  const plus=el("button",{type:"button","aria-label":"Plus"},"+");
+  const bump=d=>{ const n=Math.max(min,(parseInt(inp.value)||0)+d); inp.value=String(n); inp.dispatchEvent(new Event("input",{bubbles:true})); };
+  minus.addEventListener("click",()=>bump(-1)); plus.addEventListener("click",()=>bump(1));
+  s.append(minus, inp, plus); w.appendChild(s); w.appendChild(el("div",{class:"err-msg"}));
+  return w;
+}
+function buildDetail(prefix, defaults, parent){
+  const g=el("div",{class:"dep-detail"});
+  DETAIL_FIELDS.forEach(f=>{
+    const w=buildField(f, g, `${prefix}-${f.k}`, f.span3?"span3":"");
+    if (!f.req) w._star.style.display="none";
+  });
+  parent.appendChild(g);
+  DETAIL_FIELDS.forEach(f=>{
+    const v = defaults[f.k]!==undefined && defaults[f.k]!=="" ? defaults[f.k] : (f.def ?? defaults[f.k]);
+    if (v!==undefined) g.querySelector(`#${prefix}-${f.k}`).value=v;
+  });
+}
+function buildTypeRow(t){
+  const row=el("div",{class:"dep-row", id:"dt-"+t.k, "data-k":t.k});
+  const top=el("div",{class:"dep-top"});
+  const name=el("div",{class:"dep-name"}, t.label);
+  if (t.hint) name.appendChild(el("small",{}, t.hint));
+  top.append(name, stepper(`dt-${t.k}-n`, 0));
+  row.appendChild(top);
+  buildDetail(`dt-${t.k}`, t, row);
+  $("dep-types").appendChild(row);
+}
+function addFree(data){
+  const uid=++depUid, p=`df${uid}`;
+  const row=el("div",{class:"dep-row free", id:p, "data-uid":String(uid)});
+  const top=el("div",{class:"dep-top"});
+  const name=el("div",{class:"dep-name field", id:`fld-${p}-rep`});
+  const rep=el("input",{type:"text", id:`${p}-rep`, placeholder:"Désignation du départ *", maxlength:"60"});
+  name.append(rep, el("div",{class:"err-msg"}));
+  const del=el("button",{class:"mini del", type:"button"},"✕");
+  del.addEventListener("click",()=>{ ask("Supprimer ce départ ?", `« ${rep.value||"Départ sans nom"} » sera retiré de la liste.`, "Supprimer").then(ok=>{ if (ok) { row.remove(); afterChange(); } }); });
+  top.append(name, stepper(`${p}-n`, 1), del);
+  row.appendChild(top);
+  const d = data || { n:1, cal:"", pol:"" };
+  buildDetail(p, d, row);
+  $("dep-free").appendChild(row);
+  rep.value=d.rep||""; $(`${p}-n`).value=String(d.n||1);
+  afterChange();
+  if (!data) { row.scrollIntoView({behavior:"smooth", block:"center"}); rep.focus(); }
+}
+function readDetail(p){ const r={}; DETAIL_FIELDS.forEach(f=>r[f.k]=$(`${p}-${f.k}`).value.trim()); return r; }
+function readDeparts(){
+  const out=[];
+  DEP_TYPES.forEach(t=>{
+    const raw=$(`dt-${t.k}-n`).value;
+    out.push({ kind:"type", key:t.k, p:`dt-${t.k}`, label:t.label, raw, n:parseInt(raw)||0, ...readDetail(`dt-${t.k}`) });
+  });
+  document.querySelectorAll("#dep-free .dep-row").forEach(row=>{
+    const p=row.id, raw=$(`${p}-n`).value;
+    out.push({ kind:"free", p, label:$(`${p}-rep`).value.trim(), rep:$(`${p}-rep`).value.trim(), raw, n:parseInt(raw)||0, ...readDetail(p) });
+  });
+  return out;
+}
+const activeDeparts = () => readDeparts().filter(d=>d.kind==="free" || d.n>0);
+
+/* ═════════════════════ LECTURE DES VALEURS ═════════════════════ */
+function getVal(f){
+  const c=$(f.id);
+  if (f.type==="radio") { const i=c.querySelector("input:checked"); return i?i.value:""; }
+  if (f.type==="check") return [...c.querySelectorAll("input:checked")].map(i=>i.value);
+  return c.value.trim();
+}
+function setVal(f, v){
+  const c=$(f.id);
+  if (f.type==="radio"||f.type==="check"){
+    const arr=Array.isArray(v)?v:[v];
+    c.querySelectorAll("input").forEach(i=>i.checked=arr.includes(i.value));
+    syncChoices(c);
+  } else c.value = v ?? "";
+}
+function readAll(){ const V={}; FIELDS.forEach(f=>V[f.id]=getVal(f)); return V; }
+const visible = (f,V) => !f.show || !!f.show(V);
+
+/* ═════════════════════ CONTRÔLES ═════════════════════ */
+function fieldError(f, v, ctx){
+  if (isEmpty(v)) return evalFn(f.req, ctx) ? "Réponse obligatoire." : "";
+  if (f.type==="tel" && !/^(0[1-9]\d{8}|\+33[1-9]\d{8})$/.test(v.replace(/[\s.\-]/g,""))) return "Numéro à 10 chiffres (ex : 06 12 34 56 78).";
+  if (f.type==="email" && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return "Adresse e-mail invalide.";
+  if (f.type==="num" || f.type==="int"){
+    const n=Number(v);
+    if (!isFinite(n) || n<=0) return "Valeur positive attendue.";
+    if (f.type==="int" && !Number.isInteger(n)) return "Nombre entier attendu.";
+    if (f.min!=null && n<f.min) return `Minimum ${f.min}.`;
+    if (f.max!=null && n>f.max) return `Maximum ${f.max}.`;
+  }
+  if (f.minLen && v.length<f.minLen) return `${f.minLen} caractères minimum.`;
+  if (f.type==="date"){
+    const d=new Date(v+"T00:00:00");
+    if (isNaN(d)) return "Date invalide.";
+    if (d<TODAY) return "La date ne peut pas être passée.";
+  }
+  return f.check ? (f.check(v, ctx) || "") : "";
+}
+
+function validateAll(){
+  const V=readAll(), errs=[];
+  FIELDS.forEach(f=>{
+    if (!visible(f,V)) return;
+    const m=fieldError(f, V[f.id], V);
+    if (m) errs.push({ sec:f.sec, node:$("fld-"+f.id), msg:m, label:f.label });
+  });
+  const deps=readDeparts();
+  let total=0;
+  deps.forEach(d=>{
+    const name = d.kind==="free" ? `Départ libre « ${d.rep||"sans nom"} »` : d.label;
+    const row = $(d.p);
+    const push=(node,msg,what)=>errs.push({ sec:"departs", node, msg, label:`${name} — ${what}`, card:row });
+    const min = d.kind==="free" ? 1 : 0;
+    if (!/^\d+$/.test(d.raw) || Number(d.raw)<min || Number(d.raw)>99) { push($(`fld-${d.p}-n`), `Nombre entier de ${min} à 99.`, "nombre de circuits"); return; }
+    if (d.kind==="type" && d.n===0) return;
+    total += d.n;
+    if (d.kind==="free" && d.rep.length<2) push($(`fld-${d.p}-rep`), "Désignation obligatoire.", "désignation");
+    DETAIL_FIELDS.forEach(f=>{
+      if (f.show && !f.show(V)) return;
+      const m=fieldError(f, d[f.k], d);
+      if (m) push($(`fld-${d.p}-${f.k}`), m, f.label.toLowerCase());
+    });
+  });
+  if (!total) errs.push({ sec:"departs", node:$("dep-empty"), msg:"Au moins un circuit est obligatoire.", label:"Liste des départs" });
+  else if (cptParCircuit(V) && !activeDeparts().some(d=>/^Oui/.test(d.cpt)))
+    errs.push({ sec:"departs", node:$("dep-empty"), msg:"Comptage par circuit demandé : indiquez « Oui » en comptage sur au moins un départ.", label:"Comptage des circuits" });
+  return { V, errs };
+}
+
+function applyMarks(errs, secs){
+  secs.forEach(s=>{
+    document.querySelectorAll(`#tab-${s} .invalid`).forEach(n=>n.classList.remove("invalid"));
+  });
+  errs.forEach(e=>{
+    if (!secs.has(e.sec)) return;
+    e.node.classList.add("invalid");
+    const m=e.node.querySelector(":scope > .err-msg"); if (m) m.textContent=e.msg;
+    if (e.card) e.card.classList.add("invalid");
+  });
+}
+function updateBadges(errs){
+  SECTIONS.forEach(s=>{
+    if (s.id==="recap") return;
+    const b=document.querySelector(`.tab-btn[data-tab="${s.id}"]`);
+    const n=errs.filter(e=>e.sec===s.id).length;
+    const shown = touched.has(s.id);
+    b.classList.toggle("has-err", shown && n>0);
+    b.classList.toggle("ok", shown && n===0);
+    b.querySelector(".dot").textContent=n;
+  });
+}
+
+/* ═════════════════════ ALERTES TECHNIQUES (non bloquantes) ═════════════════════ */
+const kA = s => { if(!s) return null; if(/Inconnu/.test(s)) return null; const m=s.replace(",",".").match(/[\d.]+/); return m?Number(m[0]):null; };
+function alerts(V){
+  const al=[];
+  const p=Number(V.puissance);
+  const mono = V.tension==="230 V mono";
+  const iTheo = p>0 ? (mono ? p*1000/230 : p*1000/(400*Math.sqrt(3))) : 0;
+  const iTete = Number(V.tete_cal)||0;
+  if (iTete && iTheo && iTete < iTheo*0.95)
+    al.push(`Appareil de tête ${iTete} A inférieur au courant d'emploi théorique (${Math.round(iTheo)} A pour ${p} kVA).`);
+  if (/Inconnu/.test(V.icc)) al.push("Icc inconnu : AEC retiendra une hypothèse prudente, ce qui peut renchérir le matériel.");
+  const icc=kA(V.icc), pdc=kA(V.pdc_dep);
+  if (icc && pdc && pdc<icc) al.push(`Pouvoir de coupure des départs (${V.pdc_dep}) inférieur à l'Icc (${V.icc}) : à valider par filiation.`);
+  activeDeparts().forEach(d=>{
+    const n = d.label || "Départ libre";
+    if (iTete && calA(d.cal)>iTete) al.push(`${n} : calibre ${d.cal} supérieur à l'appareil de tête (${iTete} A).`);
+    if (/^(pc|pcinfo|pctri)$/.test(d.key||"") && !/^30 mA/.test(d.diff) && d.diff!==AEC)
+      al.push(`${n} : les prises jusqu'à 32 A exigent un différentiel 30 mA (NF C 15-100).`);
+    if (/^irve/.test(d.key||"") && /AC|Sans|300/.test(d.diff))
+      al.push(`${n} : IRVE = type A avec détection 6 mA continu dans la borne, sinon type B.`);
+  });
+  if (V.date_besoin){
+    const d=new Date(V.date_besoin+"T00:00:00"), j=Math.round((d-TODAY)/86400000);
+    if (j>=0 && j<DELAI_MINI_JOURS) al.push(`Date de besoin dans ${j} jour(s) : délai à confirmer avec AEC.`);
+  }
+  const iJdb = parseInt(V.jdb_int)||0;
+  if (/^Oui/.test(V.jdb) && iJdb && iTete && iJdb < iTete) al.push(`Jeu de barres ${V.jdb_int} inférieur à l'appareil de tête (${iTete} A).`);
+  if (/colonne/.test(V.jdb) && (V.enveloppe==="Coffret mural" || V.enveloppe==="Armoire au sol")) al.push("Jeu de barres dans la colonne à câbles : l'enveloppe choisie n'a pas de gaine à câbles — choisir la version « + gaine à câbles ».");
+  const baes = activeDeparts().some(d=>d.key==="baes");
+  if (V.tcde_baes==="Non" && (V.erp==="Oui" || baes)) al.push("BAES sans télécommande de mise au repos : elle est en principe exigée en ERP.");
+  if (/^Oui/.test(V.pv) && V.pv_inj==="Hors TGBT") al.push("Production PV hors TGBT : prévoir au TGBT l'étiquetage « présence d'une seconde source » (UTE C 15-712-1).");
+  if (V.erp==="Oui" && V.parafoudre==="Non") al.push("ERP sans parafoudre : vérifier l'analyse du risque foudre.");
+  return al;
+}
+
+/* ═════════════════════ RÉCAPITULATIF ═════════════════════ */
+function buildBody(V, al){
+  const L=[], v=x=> Array.isArray(x) ? (x.join(", ")||"—") : (x||"—");
+  L.push("DEMANDE DE CHIFFRAGE — TGBT TERTIAIRE MONTÉ CÂBLÉ");
+  L.push(`Réf. ${REF} — émise le ${new Date().toLocaleDateString("fr-FR")}`);
+  L.push("═".repeat(40));
+  SECTIONS.forEach(s=>{
+    if (s.id==="recap") return;
+    L.push(""); L.push(s.title.replace(/^\S+\s/,"").toUpperCase());
+    if (s.id==="departs"){
+      const act=activeDeparts();
+      if (!act.length) { L.push("  (aucun départ)"); return; }
+      let tot=0;
+      act.forEach((d,i)=>{
+        tot+=d.n;
+        const cpt = cptParCircuit(V) && /^Oui/.test(d.cpt) ? ` — COMPTAGE${/MID/.test(d.cpt)?" MID":""}` : "";
+        L.push(`  ${pad2(i+1)}. ${d.label||"—"} : ${d.n} circuit(s) — ${d.cal||"—"} ${d.pol||"—"} — ${d.diff||"—"}${cpt}${d.pre?" — "+d.pre:""}`);
+      });
+      L.push(`  TOTAL : ${tot} circuit(s)`);
+      return;
+    }
+    s.fields.forEach(f=>{
+      if (!visible(f,V) || isEmpty(V[f.id])) return;
+      if (f.type==="textarea") { L.push(`  ${f.label} :`); L.push("    "+V[f.id].replace(/\n/g,"\n    ")); return; }
+      let val = v(V[f.id]);
+      if (f.type==="date") val = new Date(V[f.id]+"T00:00:00").toLocaleDateString("fr-FR");
+      L.push(`  ${f.label} : ${val}`);
+    });
+  });
+  if (al.length){ L.push(""); L.push("ALERTES SIGNALÉES À L'ENVOI"); al.forEach(a=>L.push("  • "+a)); }
+  L.push(""); L.push("──"); L.push("AEC — Atelier Électrique de Câblage · 04 99 58 15 72");
+  return L.join("\n");
+}
+
+function renderRecap(){
+  const {V, errs}=validateAll(), al=alerts(V);
+  const box=$("recap-status"); box.innerHTML="";
+  if (errs.length){
+    const d=el("div",{class:"status status-err"}, `${errs.length} réponse(s) obligatoire(s) manquante(s) ou incorrecte(s) :`);
+    const ul=el("ul");
+    errs.slice(0,25).forEach(e=>{
+      const li=el("li",{}, `${SECTIONS.find(s=>s.id===e.sec).tab.replace(/^\d · /,"")} — ${e.label} : ${e.msg}`);
+      li.style.cursor="pointer";
+      li.addEventListener("click",()=>{ touched.add(e.sec); showTab(e.sec); refreshMarks(); setTimeout(()=>e.node.scrollIntoView({behavior:"smooth",block:"center"}),80); });
+      ul.appendChild(li);
+    });
+    if (errs.length>25) ul.appendChild(el("li",{},`… et ${errs.length-25} autre(s).`));
+    d.appendChild(ul); box.appendChild(d);
+  } else box.appendChild(el("div",{class:"status status-ok"},"Dossier complet — prêt à l'envoi."));
+  if (al.length){
+    const d=el("div",{class:"status status-warn"},"Points à vérifier (non bloquants) :"); d.style.marginTop="8px";
+    const ul=el("ul"); al.forEach(a=>ul.appendChild(el("li",{},a))); d.appendChild(ul); box.appendChild(d);
+  }
+  $("recap-text").textContent=buildBody(V, al);
+}
+
+/* ═════════════════════ NAVIGATION ═════════════════════ */
+function showTab(id){
+  current=id;
+  document.querySelectorAll(".tab-content").forEach(t=>t.classList.toggle("active", t.id==="tab-"+id));
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active", b.dataset.tab===id));
+  const act=document.querySelector(".tab-btn.active"); if (act && act.scrollIntoView) act.scrollIntoView({inline:"center", block:"nearest"});
+  $("btn-prev").disabled = ORDER.indexOf(id)===0;
+  $("btn-next").textContent = id==="recap" ? "✉️ Envoyer la demande" : (ORDER.indexOf(id)===ORDER.length-2 ? "Contrôler ▶" : "Suivant ▶");
+  if (id==="recap") renderRecap();
+  window.scrollTo(0,0);
+}
+function goPrev(){ const i=ORDER.indexOf(current); if (i>0) showTab(ORDER[i-1]); }
+function goNext(){
+  if (current==="recap") return send();
+  touched.add(current);
+  const {errs}=validateAll();
+  const mine=errs.filter(e=>e.sec===current);
+  refreshMarks(errs);
+  if (mine.length){
+    mine[0].node.scrollIntoView({behavior:"smooth", block:"center"});
+    toast(`⚠ ${mine.length} réponse(s) obligatoire(s) à compléter dans cette section`);
+    return;
+  }
+  showTab(ORDER[ORDER.indexOf(current)+1]);
+}
+function refreshMarks(errs){
+  errs = errs || validateAll().errs;
+  applyMarks(errs, touched);
+  updateBadges(errs);
+}
+
+/* ═════════════════════ ENVOI ═════════════════════ */
+function copyText(t){
+  const fallback=()=>{ const ta=el("textarea"); ta.value=t; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand("copy"); }catch(e){} ta.remove(); return ok; };
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).then(()=>true).catch(fallback);
+  return Promise.resolve(fallback());
+}
+function copyRecap(){ copyText($("recap-text").textContent).then(ok=>toast(ok?"Récapitulatif copié":"Copie impossible — sélectionnez le texte")); }
+function downloadRecap(){
+  const blob=new Blob([$("recap-text").textContent],{type:"text/plain;charset=utf-8"});
+  const a=el("a",{href:URL.createObjectURL(blob), download:`${REF}_${(readAll().chantier||"chantier").replace(/[^\w\-]+/g,"_")}.txt`});
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ── Fenêtre interne ── */
+function modal(title, bodyNodes, actions){
+  const bg=el("div",{class:"modal-bg"}), box=el("div",{class:"modal"});
+  box.appendChild(el("h3",{},title));
+  const b=el("div",{class:"m-body"}); bodyNodes.forEach(n=>b.appendChild(typeof n==="string"?el("div",{},n):n)); box.appendChild(b);
+  const a=el("div",{class:"m-actions"}); actions.forEach(x=>a.appendChild(x)); box.appendChild(a);
+  bg.appendChild(box); document.body.appendChild(bg);
+  const close=()=>bg.remove();
+  bg.addEventListener("click",e=>{ if(e.target===bg) close(); });
+  return close;
+}
+function ask(title, text, okLabel="Confirmer", list){
+  return new Promise(res=>{
+    const nodes=[text];
+    if (list && list.length){ const ul=el("ul"); list.forEach(t=>ul.appendChild(el("li",{},t))); nodes.push(ul); }
+    const ok=el("button",{class:"m-btn primary",type:"button"},okLabel), no=el("button",{class:"m-btn ghost",type:"button"},"Annuler");
+    const close=modal(title, nodes, [ok,no]);
+    ok.addEventListener("click",()=>{ close(); res(true); });
+    no.addEventListener("click",()=>{ close(); res(false); });
+  });
+}
+function linkBtn(label, href, cls="", blank=false){
+  const a=el("a",{class:"m-btn "+cls, href}, label);
+  if (blank){ a.target="_blank"; a.rel="noopener"; }
+  return a;
+}
+
+/* ── Fichier JSON : export / import ── */
+const JSON_FORMAT="aec-tgbt-tertiaire";
+function collectData(){
+  const deps=readDeparts();
+  const strip=d=>({ n:d.raw, cal:d.cal, pol:d.pol, diff:d.diff, cpt:d.cpt, pre:d.pre, rep:d.rep });
+  return { format:JSON_FORMAT, version:1, ref:REF, exporte_le:new Date().toISOString(), values:readAll(),
+    types:Object.fromEntries(deps.filter(d=>d.kind==="type").map(d=>[d.key, strip(d)])),
+    free:deps.filter(d=>d.kind==="free").map(strip) };
+}
+const fileBase = () => `${REF}_${(readAll().chantier||"chantier").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\w\-]+/g,"_")}`;
+function jsonFile(){
+  return new File([JSON.stringify(collectData(), null, 2)], fileBase()+".json", { type:"application/json" });
+}
+/* Dossier autonome : la page du formulaire + les réponses intégrées. Double-clic = dossier rouvert. */
+const escHTML = t => String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function dossierFile(){
+  const json = JSON.stringify(collectData()).replace(/</g,"\\u003c");
+  const V = readAll();
+  const recap = escHTML(buildBody(V, alerts(V)));
+  const formUrl = FORM_URL_CONFIG || (/^https?:$/.test(location.protocol) ? location.origin+location.pathname : "");
+  const ios = formUrl
+    ? `<br><b>Sur iPhone / iPad :</b> l'appli Fichiers n'exécute pas les formulaires. Ouvrez <a href="${escHTML(formUrl)}">le formulaire en ligne</a>, onglet 7 « Contrôle » &gt; « 📂 Ouvrir un dossier », puis choisissez ce fichier.`
+    : `<br><b>Sur iPhone / iPad :</b> ouvrez le formulaire en ligne, onglet 7 « Contrôle » &gt; « 📂 Ouvrir un dossier », puis choisissez ce fichier.`;
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dossier ${escHTML(REF)} — Chiffrage TGBT AEC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style id="aec-style">${PAGE_PARTS.style}</style>
+<script type="application/json" id="aec-data">${json}<\/script>
+</head>
+<body>
+${PAGE_PARTS.header}
+<div id="nojs" class="nojs"><b>Dossier ${escHTML(REF)}.</b> Ce fichier s'ouvre normalement en formulaire modifiable. Si vous lisez ce texte, il est affiché dans un aperçu ou un logiciel qui bloque les scripts (messagerie, Word…) : enregistrez-le puis ouvrez-le avec Chrome ou Edge (clic droit &gt; Ouvrir avec).${ios}<pre>${recap}</pre></div>
+${PAGE_PARTS.rest}
+<script>${PAGE_PARTS.script}<\/script>
+</body>
+</html>`;
+  return new File([html], fileBase()+".html", { type:"text/html" });
+}
+/* Téléchargement forcé : type "octet-stream" pour que le navigateur enregistre le fichier
+   au lieu de l'afficher, et nouvel onglet en secours pour ne jamais remplacer le formulaire. */
+function downloadJSON(){
+  const f=dossierFile();
+  const url=URL.createObjectURL(new Blob([f],{type:"application/octet-stream"}));
+  const a=el("a",{href:url, download:f.name, target:"_blank", rel:"noopener"});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  markSaved();
+  return f.name;
+}
+/* Bouton Enregistrer : vraie fenêtre « Enregistrer sous » sur Chrome/Edge, téléchargement sinon */
+async function saveJSON(){
+  const f=dossierFile();
+  if (window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({ suggestedName:f.name, types:[{ description:"Dossier TGBT AEC (page web)", accept:{ "text/html":[".html"] } }] });
+      const w=await h.createWritable(); await w.write(f); await w.close();
+      markSaved(); toast(`💾 Dossier enregistré : ${h.name}`); return;
+    }catch(e){
+      if (e && e.name==="AbortError") return;      // l'utilisateur a annulé
+    }
+  }
+  const name=downloadJSON();
+  toast(`💾 ${name} enregistré dans Téléchargements — double-clic pour le rouvrir`);
+}
+/* Protection contre la fermeture sans enregistrement */
+let dirty=false;
+function markSaved(){ dirty=false; }
+window.addEventListener("beforeunload", e=>{ if (dirty){ e.preventDefault(); e.returnValue=""; } });
+function applyData(data){
+  document.querySelectorAll("#dep-free .dep-row").forEach(r=>r.remove());
+  DEP_TYPES.forEach(t=>{
+    $(`dt-${t.k}-n`).value="0";
+    DETAIL_FIELDS.forEach(f=>{ $(`dt-${t.k}-${f.k}`).value = t[f.k]!==undefined && t[f.k]!=="" ? t[f.k] : (f.def ?? ""); });
+  });
+  FIELDS.forEach(f=>setVal(f, data.values && data.values[f.id]!==undefined ? data.values[f.id] : (f.def ?? (f.type==="check"?[]:""))));
+  Object.entries(data.types||{}).forEach(([k,d])=>{
+    if (!$(`dt-${k}-n`)) return;
+    $(`dt-${k}-n`).value=String(d.n??0);
+    DETAIL_FIELDS.forEach(f=>{ if (d[f.k]!==undefined) $(`dt-${k}-${f.k}`).value=d[f.k]; });
+  });
+  (data.free||[]).forEach(d=>addFree(d));
+  if (data.ref) REF=data.ref;
+  $("ref-line").textContent=`Réf. ${REF}`;
+  refreshVisibility();
+}
+function importJSON(file){
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let data, txt=String(rd.result);
+    const m = txt.match(/<script type="application\/json" id="aec-data">(\{[\s\S]*?\})<\/script>/);
+    if (m) txt=m[1];
+    try{ data=JSON.parse(txt); }catch(e){ toast("Fichier illisible : ce n'est pas un dossier AEC"); return; }
+    if (!data || data.format!==JSON_FORMAT){ toast("Ce fichier n'est pas un dossier TGBT AEC"); return; }
+    ask(`Ouvrir le dossier ${data.ref||""} ?`, "Les réponses affichées seront remplacées par celles du fichier.", "Ouvrir le dossier").then(ok=>{
+      if (!ok) return;
+      applyData(data);
+      touched.clear(); SECTIONS.forEach(s=>{ if (s.id!=="recap") touched.add(s.id); });
+      refreshMarks(); save(); renderRecap();
+      toast(`Dossier ${REF} ouvert — modifiable`);
+    });
+  };
+  rd.readAsText(file);
+}
+const canShareFiles = () => { try{ return !!(navigator.canShare && navigator.canShare({ files:[new File(["x"],"t.json",{type:"application/json"})] })); }catch(e){ return false; } };
+
+function checkBeforeSend(){
+  SECTIONS.forEach(s=>{ if (s.id!=="recap") touched.add(s.id); });
+  const {V, errs}=validateAll();
+  refreshMarks(errs);
+  if (errs.length){
+    renderRecap();
+    toast(`⚠ Envoi bloqué : ${errs.length} réponse(s) obligatoire(s) manquante(s)`);
+    return null;
+  }
+  return V;
+}
+const mailSubject = V => `[${REF}] Chiffrage TGBT ${V.tarif.split(" ")[0].toLowerCase()} — ${V.chantier} (${V.ville})`;
+
+/* Mobile : partage natif avec le .json réellement joint (le destinataire se choisit dans l'appli mail) */
+function shareWithFile(){
+  const V=checkBeforeSend(); if (!V) return;
+  const dest=DESTINATAIRES.find(d=>d.nom===V.dest);
+  const body=buildBody(V, alerts(V));
+  let f=dossierFile(); try{ if (!navigator.canShare({files:[f]})) f=jsonFile(); }catch(e){ f=jsonFile(); }
+  navigator.share({ files:[f], title:mailSubject(V), text:`À l'attention de ${dest.nom} (${dest.email})\n\n`+body })
+    .then(()=>{ markSaved(); toast("✅ Dossier partagé avec la pièce jointe"); })
+    .catch(e=>{ if (e && e.name!=="AbortError") toast("Partage impossible — utilisez « Envoyer la demande »"); });
+}
+
+async function send(){
+  const V=checkBeforeSend();
+  if (!V){
+    const n=validateAll().errs.length;
+    modal("Envoi bloqué", [`${n} réponse(s) obligatoire(s) manquante(s) ou incorrecte(s).`, "La liste est affichée dans l'onglet Contrôle : cliquez sur une ligne pour aller au champ concerné."],
+      [ (()=>{ const b=el("button",{class:"m-btn primary",type:"button"},"Voir la liste"); b.addEventListener("click",()=>{ document.querySelector(".modal-bg").remove(); showTab("recap"); }); return b; })() ]);
+    return;
+  }
+  const al=alerts(V);
+  if (al.length && !(await ask("Points à vérifier", "Ces points ne bloquent pas l'envoi, mais méritent un contrôle :", "Envoyer quand même", al))) return;
+
+  const body=buildBody(V, al);
+  copyText(body);
+  const dest=DESTINATAIRES.find(d=>d.nom===V.dest);
+  const subject=mailSubject(V);
+  const fname=downloadJSON();                        // un lien mailto ne peut pas joindre de fichier : on le télécharge
+  const pj=`\n\n📎 PIÈCE JOINTE À AJOUTER : ${fname} (dossier Téléchargements).\nPour AEC : double-cliquer sur la pièce jointe ouvre le dossier complet, modifiable.`;
+  const short=`Demande de chiffrage TGBT — réf. ${REF}\nChantier : ${V.chantier} (${V.ville})\nEntreprise : ${V.entreprise} — ${V.contact} — ${V.tel}\n\n`+
+              `>>> Le récapitulatif complet a été copié : COLLEZ-LE ICI (Ctrl+V ou appui long > Coller) <<<`+pj;
+  const enc=encodeURIComponent, to=enc(dest.email), su=enc(subject);
+  const pick=(full,max,make)=> make(full).length<=max ? make(full) : make(short);
+  const mailto = pick(body+pj, MAILTO_MAX, t=>`mailto:${dest.email}?subject=${su}&body=${enc(t)}`);
+  const outlook = pick(body+pj, 7000, t=>`https://outlook.office.com/mail/deeplink/compose?to=${to}&subject=${su}&body=${enc(t)}`);
+  const outlookPerso = pick(body+pj, 7000, t=>`https://outlook.live.com/mail/0/deeplink/compose?to=${to}&subject=${su}&body=${enc(t)}`);
+  const gmail = pick(body+pj, 7000, t=>`https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${su}&body=${enc(t)}`);
+
+  // tentative d'ouverture automatique de la messagerie installée
+  try{ const a=el("a",{href:mailto}); document.body.appendChild(a); a.click(); a.remove(); }catch(e){}
+
+  const step1=el("div",{class:"m-step"}); step1.innerHTML=`<b>1.</b> Le fichier <b>${fname}</b> a été téléchargé (dossier Téléchargements). <b>Joignez-le au mail.</b>`;
+  const step2=el("div",{class:"m-step"}); step2.innerHTML=`<b>2.</b> Le récapitulatif est copié dans le presse-papier : si le mail est vide ou incomplet, collez-le (Ctrl+V).`;
+  const step3=el("div",{class:"m-step"}); step3.innerHTML=`<b>3.</b> Si aucune messagerie ne s'est ouverte, choisissez-la ci-dessous. Destinataire : <b>${dest.nom}</b> (${dest.email}).`;
+  const again=el("button",{class:"m-btn",type:"button"},"⬇️ Retélécharger le dossier"); again.addEventListener("click",()=>downloadJSON());
+  const copy=el("button",{class:"m-btn",type:"button"},"📋 Recopier le récapitulatif"); copy.addEventListener("click",()=>copyText(body).then(ok=>toast(ok?"Récapitulatif copié":"Copie impossible")));
+  const close=el("button",{class:"m-btn ghost",type:"button"},"Fermer");
+  const closeFn=modal("Envoi de la demande", [step1, step2, step3,
+      el("div",{class:"hint"},"Rien ne se télécharge ni ne s'ouvre ? Le formulaire est sans doute affiché dans un aperçu : ouvrez le fichier HTML directement dans Chrome ou Edge (ou depuis son adresse GitHub).")],
+    [ linkBtn("✉️ Ouvrir ma messagerie (Outlook, Mail…)", mailto, "primary"),
+      linkBtn("Outlook Office 365 (web)", outlook, "", true),
+      linkBtn("Outlook.com / Hotmail (web)", outlookPerso, "", true),
+      linkBtn("Gmail (web)", gmail, "", true),
+      again, copy, close ]);
+  close.addEventListener("click",closeFn);
+}
+
+/* ═════════════════════ BROUILLON AUTOMATIQUE ═════════════════════ */
+const KEY="aec-tgbt-brouillon-v2";
+let STORE_KEY=KEY;                       // un dossier ouvert depuis un fichier a son propre brouillon
+function save(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(collectData())); }catch(e){}
+}
+function load(k){
+  try{ const raw=localStorage.getItem(k||STORE_KEY); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+}
+function embeddedData(){
+  const t=document.getElementById("aec-data");
+  if (!t) return null;
+  try{ const d=JSON.parse(t.textContent); return d && d.format===JSON_FORMAT ? d : null; }catch(e){ return null; }
+}
+function resetAll(){
+  ask("Nouveau dossier ?", "Toutes les réponses seront effacées.", "Tout effacer").then(ok=>{
+    if (!ok) return;
+    try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+    STORE_KEY=KEY;
+    applyData({ values:{} }); REF=newRef(); $("ref-line").textContent=`Réf. ${REF}`;
+    touched.clear(); refreshMarks(); save(); showTab("projet");
+    toast("Nouveau dossier prêt");
+  });
+}
+let saveTimer;
+function afterChange(){
+  refreshVisibility();
+  if (touched.size) refreshMarks();
+  dirty=true;
+  clearTimeout(saveTimer); saveTimer=setTimeout(save,400);
+}
+
+function refreshVisibility(){
+  const V=readAll();
+  FIELDS.forEach(f=>{
+    const w=$("fld-"+f.id);
+    w.style.display = visible(f,V) ? "" : "none";
+    w._star.style.display = evalFn(f.req,V) ? "" : "none";
+  });
+  let tot=0;
+  const showCpt=cptParCircuit(V);
+  readDeparts().forEach(d=>{
+    $(`fld-${d.p}-cpt`).style.display = showCpt ? "" : "none";
+    if (d.kind==="type") $(d.p).classList.toggle("active", d.n>0);
+    if (d.kind==="free" || d.n>0) tot+=d.n;
+  });
+  $("dep-total").textContent = `Total : ${tot} circuit(s)`;
+}
+
+/* ═════════════════════ DÉMARRAGE ═════════════════════ */
+function newRef(){ const n=new Date(); return `AEC-${n.getFullYear()}${pad2(n.getMonth()+1)}${pad2(n.getDate())}-${pad2(n.getHours())}${pad2(n.getMinutes())}`; }
+buildUI();
+const embedded=embeddedData();
+if (embedded){
+  // fichier « dossier » ouvert par double-clic : on reprend ses réponses
+  // (ou le brouillon de ce même dossier s'il est plus récent)
+  STORE_KEY = "aec-tgbt-dossier-"+embedded.ref;
+  const d=load();
+  const useDraft = d && d.values && d.ref===embedded.ref && (d.exporte_le||"") > (embedded.exporte_le||"");
+  applyData(useDraft ? d : embedded);
+  REF=embedded.ref;
+  setTimeout(()=>toast(`Dossier ${REF} ouvert${useDraft?" (dernières modifications reprises)":""} — modifiable`),300);
+} else {
+  const draft=load();
+  if (draft && draft.values){
+    REF=draft.ref||newRef();
+    applyData(draft);
+    setTimeout(()=>toast("Brouillon restauré — « Nouveau dossier » pour repartir de zéro"),300);
+  } else {
+    REF=newRef();
+  }
+}
+$("ref-line").textContent=`Réf. ${REF}`;
+$("date_besoin").min = `${TODAY.getFullYear()}-${pad2(TODAY.getMonth()+1)}-${pad2(TODAY.getDate())}`;
+document.addEventListener("input", e=>{ if (e.target.closest("#content")) afterChange(); });
+document.addEventListener("change", e=>{ if (e.target.closest("#content")) afterChange(); });
+$("import-file").addEventListener("change", e=>{ const f=e.target.files[0]; if (f) importJSON(f); e.target.value=""; });
+if (canShareFiles()) $("btn-share").style.display="";
+refreshVisibility();
+showTab("projet");
+dirty=false;
+(function(){ try{ localStorage.setItem("aec-test","1"); localStorage.removeItem("aec-test"); }
+  catch(e){ setTimeout(()=>toast("⚠ Sauvegarde automatique impossible dans cet affichage : pensez à 💾 enregistrer le dossier"),600); } })();
+</script>
+</body>
+</html>
