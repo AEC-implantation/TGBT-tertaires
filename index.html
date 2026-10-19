@@ -436,17 +436,14 @@ function buildUI(){
   // Contrôle
   $("body-recap").innerHTML = `<div id="recap-status"></div><pre id="recap-text"></pre>
     <div class="btn-row">
-      <button class="btn-sec" type="button" onclick="copyRecap()">📋 Copier</button>
-      <button class="btn-sec" type="button" onclick="downloadRecap()">⬇️ Télécharger .txt</button>
       <button class="btn-sec" type="button" onclick="window.print()">🖨️ Imprimer / PDF</button>
       <button class="btn-sec" type="button" onclick="saveJSON()">💾 Enregistrer le dossier</button>
-      <button class="btn-sec" type="button" onclick="$('import-file').click()">📂 Ouvrir un dossier</button>
-      <button class="btn-sec" type="button" onclick="pasteLink()">🔗 Ouvrir un lien de dossier</button>
-      <button class="btn-sec" type="button" id="btn-share" style="display:none" onclick="shareWithFile()">📎 Envoyer avec pièce jointe</button>
+      <button class="btn-sec" type="button" onclick="openDossier()">📂 Ouvrir un dossier</button>
       <button class="btn-sec danger" type="button" onclick="resetAll()">🗑️ Nouveau dossier</button>
+      <button class="btn-sec" type="button" id="btn-share" style="display:none;grid-column:1/-1" onclick="shareWithFile()">📎 Envoyer avec pièce jointe</button>
     </div>
     <input type="file" id="import-file" accept=".html,.htm,.json,text/html,application/json" style="display:none">
-    <div class="hint">« Enregistrer le dossier » crée un fichier .html qui contient le formulaire et toutes les réponses : un double-clic dessus rouvre le dossier, prêt à être modifié puis réenregistré.</div>`;
+    <div class="hint">« Enregistrer le dossier » crée un fichier .html avec toutes les réponses (double-clic pour le rouvrir). « Ouvrir un dossier » recharge un fichier enregistré ou un lien reçu par mail.</div>`;
 
   const foot=el("div",{class:"footer-aec"});
   foot.innerHTML="Les champs marqués <span class='req'>*</span> sont obligatoires : impossible de passer à la section suivante ou d'envoyer sans y répondre.<br>AEC — 8 rue des Frères Lumière, 34830 Jacou · 14 rue Mathieu Prévot, 12100 Millau";
@@ -984,7 +981,7 @@ async function send(){
   // Le dossier voyage dans un LIEN (aucune pièce jointe à ajouter)
   let link=""; try{ link=await dossierLink(); }catch(e){}
   const lien = link
-    ? `🔗 DOSSIER COMPLET — cliquer sur le lien. S'il n'est pas cliquable : formulaire en ligne > onglet 7 > « 🔗 Ouvrir un lien de dossier » et coller ce lien.\n<${link}>\n\n`
+    ? `🔗 DOSSIER COMPLET — cliquer sur le lien. S'il n'est pas cliquable : formulaire en ligne > onglet 7 > « 📂 Ouvrir un dossier » et coller ce lien.\n<${link}>\n\n`
     : "";
   const head=`Demande de chiffrage TGBT — réf. ${REF}\nChantier : ${V.chantier} (${V.ville})\nEntreprise : ${V.entreprise} — ${V.contact} — ${V.tel}\n\n`;
   const full = lien + body;
@@ -1118,13 +1115,17 @@ function openPacked(str, source){
     return true;
   }).catch(()=>{ toast("⚠ Lien de dossier illisible ou incomplet (copiez bien le lien en entier)"); return false; });
 }
-function pasteLink(){
-  const ta=el("textarea",{rows:"5", placeholder:"Collez ici le lien reçu par mail (https://aec-implantation.github.io/…#d=…)"});
+function openDossier(){
+  const ta=el("textarea",{rows:"4", placeholder:"Collez ici le lien reçu par mail (https://aec-implantation.github.io/…#d=…)"});
   ta.style.cssText="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px;font:12px 'DM Mono',monospace";
-  const ok=el("button",{class:"m-btn primary",type:"button"},"Ouvrir le dossier");
+  const ok=el("button",{class:"m-btn primary",type:"button"},"Ouvrir le lien collé");
+  const file=el("button",{class:"m-btn",type:"button"},"📁 Choisir un fichier de dossier enregistré (.html)");
   const no=el("button",{class:"m-btn ghost",type:"button"},"Annuler");
-  const close=modal("Ouvrir un lien de dossier", ["Dans le mail, sélectionnez tout le lien (de « https » jusqu'à la fin), copiez-le (Ctrl+C), puis collez-le ci-dessous (Ctrl+V).", ta], [ok,no]);
+  const t1=el("div",{class:"m-step"}); t1.innerHTML="<b>Lien reçu par mail :</b> sélectionnez tout le lien (de « https » jusqu'à la fin), copiez-le (Ctrl+C), puis collez-le ci-dessous (Ctrl+V).";
+  const t2=el("div",{class:"m-step"}); t2.innerHTML="<b>Fichier enregistré</b> avec 💾 : utilisez le bouton « Choisir un fichier ».";
+  const close=modal("Ouvrir un dossier", [t1, ta, t2], [ok,file,no]);
   no.addEventListener("click",close);
+  file.addEventListener("click",()=>{ close(); $("import-file").click(); });
   ok.addEventListener("click",()=>{
     if (!/#d=/.test(ta.value.replace(/\s+/g,""))) { toast("⚠ Ce texte ne contient pas de lien de dossier (#d=…)"); return; }
     openPacked(ta.value, "depuis le lien collé").then(r=>{ if (r) close(); });
