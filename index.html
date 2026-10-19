@@ -188,7 +188,7 @@ const BRAND = { Legrand:["#E2000A","#FACCCE"], Hager:["#003DA5","#C5D5F5"], Schn
 const AEC = "À définir par AEC";
 /* Adresse du formulaire en ligne (GitHub Pages). Laisser vide : détectée automatiquement quand le
    formulaire est ouvert depuis Internet. Sert au lien « iPhone » inscrit dans les dossiers enregistrés. */
-const FORM_URL_CONFIG = "";
+const FORM_URL_CONFIG = "https://aec-implantation.github.io/TGBT-tertiaires/";
 const DELAI_MINI_JOURS = 21;            // alerte si date de besoin plus proche
 const MAILTO_MAX = 1900;                // au-delà, le corps complet passe par le presse-papier
 
@@ -230,8 +230,8 @@ const SECTIONS = [
    { id:"icc", label:"Courant de court-circuit présumé (Icc) en tête du TGBT", type:"select", req:true, options:["≤ 6 kA","10 kA","15 kA","25 kA","36 kA","50 kA","> 50 kA","Inconnu — AEC estime"],
      hint:"Conditionne le pouvoir de coupure de tous les appareils. Le demander au bureau d'études ou au gestionnaire de réseau." },
    { id:"cable_arr", label:"Câble d'arrivée (nombre × section, cuivre ou alu)", type:"text", req:true, ph:"Ex : 4 × 95² Alu — ou « Inconnu »" },
-   { id:"fourn_tete", label:"Disjoncteur de tête : fourniture", type:"radio", req:true, options:["Fourni et monté par AEC","Fourni et monté par l'électricien (hors AEC)","Existant / conservé (hors AEC)"], hint:"AEC ne monte pas un disjoncteur de tête fourni par le client." },
-   { id:"marque_tete", label:"Marque du disjoncteur de tête", type:"radio", req:true, options:["Même marque que le TGBT","Legrand","Hager","Schneider","ABB","Socomec","Autre","Indifférent — AEC propose"] },
+   { id:"fourn_tete", label:"Disjoncteur d'abonné : fourniture", type:"radio", req:true, options:["Fourni et monté par AEC","Fourni et monté par l'électricien (hors AEC)","Existant / conservé (hors AEC)"], hint:"AEC ne monte pas un disjoncteur d'abonné fourni par le client." },
+   { id:"marque_tete", label:"Marque du disjoncteur d'abonné", type:"radio", req:true, options:["Même marque que le TGBT","Legrand","Hager","Schneider","ABB","Socomec","Autre","Indifférent — AEC propose"] },
    { id:"marque_tete_autre", label:"Préciser la marque", type:"text", req:V=>V.marque_tete==="Autre", show:V=>V.marque_tete==="Autre", minLen:2 },
    { id:"sens_arr", label:"Arrivée des câbles", type:"radio", req:true, options:["Par le haut","Par le bas","Mixte"] },
    { id:"secours", label:"Source de secours", type:"radio", req:true, options:["Aucune","Groupe électrogène","2ᵉ arrivée réseau","Onduleur (ASI)"] },
@@ -441,6 +441,7 @@ function buildUI(){
       <button class="btn-sec" type="button" onclick="window.print()">🖨️ Imprimer / PDF</button>
       <button class="btn-sec" type="button" onclick="saveJSON()">💾 Enregistrer le dossier</button>
       <button class="btn-sec" type="button" onclick="$('import-file').click()">📂 Ouvrir un dossier</button>
+      <button class="btn-sec" type="button" onclick="pasteLink()">🔗 Ouvrir un lien de dossier</button>
       <button class="btn-sec" type="button" id="btn-share" style="display:none" onclick="shareWithFile()">📎 Envoyer avec pièce jointe</button>
       <button class="btn-sec danger" type="button" onclick="resetAll()">🗑️ Nouveau dossier</button>
     </div>
@@ -896,15 +897,72 @@ function checkBeforeSend(){
   }
   return V;
 }
+/* ── Lien-dossier : toutes les réponses compressées dans l'adresse du formulaire en ligne ── */
+/* Codage court : les réponses à choix sont remplacées par leur numéro dans la liste */
+const DET_OPTS = Object.fromEntries(DETAIL_FIELDS.filter(f=>f.options).map(f=>[f.k,f.options]));
+const encOpt = (opts,v) => { if (!opts) return v; const i=opts.indexOf(v); return i>=0 ? i : v; };
+const decOpt = (opts,v) => (opts && typeof v==="number") ? opts[v] : v;
+const packDep = t => { const c={}; ["n","cal","pol","diff","cpt","pre","rep"].forEach(k=>{ const v=t[k]; if (v!==undefined && v!=="") c[k]= k==="n" ? Number(v) : encOpt(DET_OPTS[k],v); }); return c; };
+const unpackDep = c => { const t={}; Object.entries(c).forEach(([k,v])=>t[k]= k==="n" ? String(v) : decOpt(DET_OPTS[k],v)); return t; };
+function compactData(){
+  const d=collectData(), v={};
+  FIELDS.forEach(f=>{
+    const x=d.values[f.id];
+    if (Array.isArray(x)) { if (x.length) v[f.id]=x.map(y=>encOpt(f.options,y)); }
+    else if (String(x??"").trim()!=="") v[f.id]=encOpt(f.options,x);
+  });
+  const t={};
+  Object.entries(d.types).forEach(([k,o])=>{ if (Number(o.n)>0) t[k]=packDep(o); });
+  return { f:"aec1", r:d.ref, e:Date.parse(d.exporte_le).toString(36), v, t, l:d.free.map(packDep) };
+}
+function expandData(c){
+  if (!c || c.f!=="aec1") throw new Error("format");
+  const values={};
+  FIELDS.forEach(f=>{ const x=c.v[f.id]; if (x===undefined) return; values[f.id]= Array.isArray(x) ? x.map(y=>decOpt(f.options,y)) : decOpt(f.options,x); });
+  const types={}; Object.entries(c.t||{}).forEach(([k,o])=>types[k]=unpackDep(o));
+  return { format:JSON_FORMAT, version:1, ref:c.r, exporte_le:new Date(parseInt(c.e,36)).toISOString(), values, types, free:(c.l||[]).map(unpackDep) };
+}
+const b64url = bytes => { let s=""; for (let i=0;i<bytes.length;i+=8192) s+=String.fromCharCode.apply(null, bytes.subarray(i,i+8192)); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); };
+const unb64url = str => { const s=atob(str.replace(/-/g,"+").replace(/_/g,"/")); const b=new Uint8Array(s.length); for (let i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; };
+async function packData(obj){
+  const bytes=new TextEncoder().encode(JSON.stringify(obj));
+  if (window.CompressionStream){
+    try{
+      const buf=await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer();
+      return "z"+b64url(new Uint8Array(buf));
+    }catch(e){}
+  }
+  return "j"+b64url(bytes);
+}
+async function unpackData(str){
+  str=String(str).replace(/\s+/g,"");
+  const m=str.match(/#d=([A-Za-z0-9_\-]+)/); if (m) str=m[1];
+  str=str.replace(/[^A-Za-z0-9_\-]/g,"");
+  const kind=str[0], bytes=unb64url(str.slice(1));
+  let txt;
+  if (kind==="z"){
+    const buf=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+    txt=new TextDecoder().decode(buf);
+  } else txt=new TextDecoder().decode(bytes);
+  return expandData(JSON.parse(txt));
+}
+const formBaseUrl = () => FORM_URL_CONFIG || (/^https?:$/.test(location.protocol) ? location.origin+location.pathname : "");
+async function dossierLink(){
+  const base=formBaseUrl(); if (!base) return "";
+  return base+"#d="+(await packData(compactData()));
+}
+
 const mailSubject = V => `[${REF}] Chiffrage TGBT ${V.tarif.split(" ")[0].toLowerCase()} — ${V.chantier} (${V.ville})`;
 
 /* Mobile : partage natif avec le .json réellement joint (le destinataire se choisit dans l'appli mail) */
-function shareWithFile(){
+async function shareWithFile(){
   const V=checkBeforeSend(); if (!V) return;
   const dest=DESTINATAIRES.find(d=>d.nom===V.dest);
   const body=buildBody(V, alerts(V));
   let f=dossierFile(); try{ if (!navigator.canShare({files:[f]})) f=jsonFile(); }catch(e){ f=jsonFile(); }
-  navigator.share({ files:[f], title:mailSubject(V), text:`À l'attention de ${dest.nom} (${dest.email})\n\n`+body })
+  let link=""; try{ link=await dossierLink(); }catch(e){}
+  const lien = link ? `🔗 OUVRIR LE DOSSIER COMPLET (formulaire modifiable) :\n<${link}>\n\n` : "";
+  navigator.share({ files:[f], title:mailSubject(V), text:`À l'attention de ${dest.nom} (${dest.email})\n\n`+lien+body })
     .then(()=>{ markSaved(); toast("✅ Dossier partagé avec la pièce jointe"); })
     .catch(e=>{ if (e && e.name!=="AbortError") toast("Partage impossible — utilisez « Envoyer la demande »"); });
 }
@@ -921,28 +979,39 @@ async function send(){
   if (al.length && !(await ask("Points à vérifier", "Ces points ne bloquent pas l'envoi, mais méritent un contrôle :", "Envoyer quand même", al))) return;
 
   const body=buildBody(V, al);
-  copyText(body);
   const dest=DESTINATAIRES.find(d=>d.nom===V.dest);
   const subject=mailSubject(V);
-  const fname=downloadJSON();                        // un lien mailto ne peut pas joindre de fichier : on le télécharge
-  const pj=`\n\n📎 PIÈCE JOINTE À AJOUTER : ${fname} (dossier Téléchargements).\nPour AEC : double-cliquer sur la pièce jointe ouvre le dossier complet, modifiable.`;
-  const short=`Demande de chiffrage TGBT — réf. ${REF}\nChantier : ${V.chantier} (${V.ville})\nEntreprise : ${V.entreprise} — ${V.contact} — ${V.tel}\n\n`+
-              `>>> Le récapitulatif complet a été copié : COLLEZ-LE ICI (Ctrl+V ou appui long > Coller) <<<`+pj;
+  // Le dossier voyage dans un LIEN (aucune pièce jointe à ajouter)
+  let link=""; try{ link=await dossierLink(); }catch(e){}
+  const lien = link
+    ? `🔗 DOSSIER COMPLET — cliquer sur le lien. S'il n'est pas cliquable : formulaire en ligne > onglet 7 > « 🔗 Ouvrir un lien de dossier » et coller ce lien.\n<${link}>\n\n`
+    : "";
+  const head=`Demande de chiffrage TGBT — réf. ${REF}\nChantier : ${V.chantier} (${V.ville})\nEntreprise : ${V.entreprise} — ${V.contact} — ${V.tel}\n\n`;
+  const full = lien + body;
+  const short = head + lien + `Le lien contient toute la demande (récapitulatif, départs, options).`;
+  const shorter = lien + `Le lien contient toute la demande.`;
+  const minimal = head + `>>> Le récapitulatif complet a été copié : COLLEZ-LE ICI (Ctrl+V) <<<`;
   const enc=encodeURIComponent, to=enc(dest.email), su=enc(subject);
-  const pick=(full,max,make)=> make(full).length<=max ? make(full) : make(short);
-  const mailto = pick(body+pj, MAILTO_MAX, t=>`mailto:${dest.email}?subject=${su}&body=${enc(t)}`);
-  const outlook = pick(body+pj, 7000, t=>`https://outlook.office.com/mail/deeplink/compose?to=${to}&subject=${su}&body=${enc(t)}`);
-  const outlookPerso = pick(body+pj, 7000, t=>`https://outlook.live.com/mail/0/deeplink/compose?to=${to}&subject=${su}&body=${enc(t)}`);
-  const gmail = pick(body+pj, 7000, t=>`https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${su}&body=${enc(t)}`);
+  const pick=(max,make)=> [full, short, shorter, minimal].map(make).find(u=>u.length<=max) || make(minimal);
+  const mailto = pick(MAILTO_MAX, t=>`mailto:${dest.email}?subject=${su}&body=${enc(t)}`);
+  const outlook = pick(7500, t=>`https://outlook.office.com/mail/deeplink/compose?to=${to}&subject=${su}&body=${enc(t)}`);
+  const outlookPerso = pick(7500, t=>`https://outlook.live.com/mail/0/deeplink/compose?to=${to}&subject=${su}&body=${enc(t)}`);
+  const gmail = pick(7500, t=>`https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${su}&body=${enc(t)}`);
+  const linkInMailto = !!link && mailto.includes(enc(link).slice(0,40));
+  copyText(linkInMailto ? body : full);
 
   // tentative d'ouverture automatique de la messagerie installée
   try{ const a=el("a",{href:mailto}); document.body.appendChild(a); a.click(); a.remove(); }catch(e){}
 
-  const step1=el("div",{class:"m-step"}); step1.innerHTML=`<b>1.</b> Le fichier <b>${fname}</b> a été téléchargé (dossier Téléchargements). <b>Joignez-le au mail.</b>`;
-  const step2=el("div",{class:"m-step"}); step2.innerHTML=`<b>2.</b> Le récapitulatif est copié dans le presse-papier : si le mail est vide ou incomplet, collez-le (Ctrl+V).`;
+  const step1=el("div",{class:"m-step"});
+  step1.innerHTML = linkInMailto
+    ? `<b>1.</b> Le mail contient un <b>lien vers le dossier complet</b> : AEC l'ouvre d'un clic. <b>Aucune pièce jointe à ajouter.</b>`
+    : `<b>1.</b> Votre messagerie limite la longueur du mail : <b>collez (Ctrl+V)</b> dans le mail le contenu copié, il contient le lien vers le dossier complet. Ou utilisez Outlook web / Gmail ci-dessous, qui reprennent tout automatiquement.`;
+  // copie du récapitulatif uniquement si le lien n'a pas pu entrer dans le mail : sinon rien à coller
+  const step2=el("div",{class:"m-step"}); step2.innerHTML=`<b>2.</b> Vérifiez le mail, puis envoyez-le. Joignez si possible le schéma unifilaire et le CCTP.`;
   const step3=el("div",{class:"m-step"}); step3.innerHTML=`<b>3.</b> Si aucune messagerie ne s'est ouverte, choisissez-la ci-dessous. Destinataire : <b>${dest.nom}</b> (${dest.email}).`;
-  const again=el("button",{class:"m-btn",type:"button"},"⬇️ Retélécharger le dossier"); again.addEventListener("click",()=>downloadJSON());
-  const copy=el("button",{class:"m-btn",type:"button"},"📋 Recopier le récapitulatif"); copy.addEventListener("click",()=>copyText(body).then(ok=>toast(ok?"Récapitulatif copié":"Copie impossible")));
+  const again=el("button",{class:"m-btn",type:"button"},"💾 Garder une copie du dossier (.html)"); again.addEventListener("click",()=>saveJSON());
+  const copy=el("button",{class:"m-btn",type:"button"},"📋 Recopier lien + récapitulatif"); copy.addEventListener("click",()=>copyText(full).then(ok=>toast(ok?"Lien et récapitulatif copiés":"Copie impossible")));
   const close=el("button",{class:"m-btn ghost",type:"button"},"Fermer");
   const closeFn=modal("Envoi de la demande", [step1, step2, step3,
       el("div",{class:"hint"},"Rien ne se télécharge ni ne s'ouvre ? Le formulaire est sans doute affiché dans un aperçu : ouvrez le fichier HTML directement dans Chrome ou Edge (ou depuis son adresse GitHub).")],
@@ -1035,6 +1104,34 @@ if (canShareFiles()) $("btn-share").style.display="";
 refreshVisibility();
 showTab("projet");
 dirty=false;
+function openPacked(str, source){
+  return unpackData(str).then(data=>{
+    STORE_KEY = "aec-tgbt-dossier-"+data.ref;
+    const d=load();
+    const useDraft = d && d.values && d.ref===data.ref && (d.exporte_le||"") > (data.exporte_le||"");
+    applyData(useDraft ? d : data);
+    REF=data.ref; $("ref-line").textContent=`Réf. ${REF}`;
+    touched.clear(); SECTIONS.forEach(s=>{ if (s.id!=="recap") touched.add(s.id); });
+    refreshMarks(); save(); dirty=false;
+    showTab("recap");
+    toast(`Dossier ${REF} ouvert ${source}${useDraft?" (dernières modifications reprises)":""} — modifiable`);
+    return true;
+  }).catch(()=>{ toast("⚠ Lien de dossier illisible ou incomplet (copiez bien le lien en entier)"); return false; });
+}
+function pasteLink(){
+  const ta=el("textarea",{rows:"5", placeholder:"Collez ici le lien reçu par mail (https://aec-implantation.github.io/…#d=…)"});
+  ta.style.cssText="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px;font:12px 'DM Mono',monospace";
+  const ok=el("button",{class:"m-btn primary",type:"button"},"Ouvrir le dossier");
+  const no=el("button",{class:"m-btn ghost",type:"button"},"Annuler");
+  const close=modal("Ouvrir un lien de dossier", ["Dans le mail, sélectionnez tout le lien (de « https » jusqu'à la fin), copiez-le (Ctrl+C), puis collez-le ci-dessous (Ctrl+V).", ta], [ok,no]);
+  no.addEventListener("click",close);
+  ok.addEventListener("click",()=>{
+    if (!/#d=/.test(ta.value.replace(/\s+/g,""))) { toast("⚠ Ce texte ne contient pas de lien de dossier (#d=…)"); return; }
+    openPacked(ta.value, "depuis le lien collé").then(r=>{ if (r) close(); });
+  });
+  setTimeout(()=>ta.focus(),50);
+}
+if (location.hash.startsWith("#d=")) openPacked(location.hash.slice(3), "depuis le lien");
 (function(){ try{ localStorage.setItem("aec-test","1"); localStorage.removeItem("aec-test"); }
   catch(e){ setTimeout(()=>toast("⚠ Sauvegarde automatique impossible dans cet affichage : pensez à 💾 enregistrer le dossier"),600); } })();
 </script>
