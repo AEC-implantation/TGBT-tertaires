@@ -126,10 +126,13 @@
   .nojs{max-width:900px;margin:14px auto;padding:14px 16px;background:#fff8e1;border-left:4px solid var(--gold);border-radius:10px;font-size:14px;line-height:1.5;color:#4a3a00}
   .nojs pre{white-space:pre-wrap;font:12px/1.5 'DM Mono',monospace;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:10px;color:var(--dark)}
   .err-banner{position:fixed;top:0;left:0;right:0;z-index:999;background:var(--red);color:#fff;padding:10px 14px;font-size:13px;font-weight:600}
+  .edit-bar{background:var(--violet-l);border:2px solid var(--violet);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;color:var(--violet-d);margin-bottom:8px;display:flex;flex-direction:column;gap:8px}
+  .edit-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px}
+  .edit-btn{border:none;background:var(--violet);color:#fff;border-radius:10px;padding:10px 8px;font:700 13px 'DM Sans',sans-serif;cursor:pointer}
   @media print{
     body{background:#fff;padding:0}
     .app-header{position:static;box-shadow:none}
-    .tab-bar,.nav-bar,.btn-row,#recap-status,.toast,.footer-aec{display:none!important}
+    .tab-bar,.nav-bar,.btn-row,#recap-status,.toast,.footer-aec,.edit-bar{display:none!important}
     .tab-content{display:none!important}#tab-recap{display:block!important}
     .card{box-shadow:none;border:none}
     pre#recap-text{border:none;background:#fff;font-size:10.5px}
@@ -188,7 +191,7 @@ const BRAND = { Legrand:["#E2000A","#FACCCE"], Hager:["#003DA5","#C5D5F5"], Schn
 const AEC = "À définir par AEC";
 /* Adresse du formulaire en ligne (GitHub Pages). Laisser vide : détectée automatiquement quand le
    formulaire est ouvert depuis Internet. Sert au lien « iPhone » inscrit dans les dossiers enregistrés. */
-const FORM_URL_CONFIG = "https://aec-implantation.github.io/TGBT-tertiaires/";
+const FORM_URL_CONFIG = "https://aec-implantation.github.io/TGBT-tertaires/";
 const DELAI_MINI_JOURS = 21;            // alerte si date de besoin plus proche
 const MAILTO_MAX = 1900;                // au-delà, le corps complet passe par le presse-papier
 
@@ -681,6 +684,16 @@ function buildBody(V, al){
 function renderRecap(){
   const {V, errs}=validateAll(), al=alerts(V);
   const box=$("recap-status"); box.innerHTML="";
+  // Accès direct à la modification (le récapitulatif ci-dessous n'est qu'un aperçu)
+  const edit=el("div",{class:"edit-bar"});
+  edit.innerHTML=`<div><b>✏️ Ce dossier est modifiable.</b><br>Le texte ci-dessous est un aperçu : pour changer une réponse, ouvrez la section concernée.</div>`;
+  const sel=el("div",{class:"edit-btns"});
+  SECTIONS.filter(x=>x.id!=="recap").forEach(x=>{
+    const b=el("button",{type:"button",class:"edit-btn"}, x.tab.replace(/^\d · /,""));
+    b.addEventListener("click",()=>showTab(x.id));
+    sel.appendChild(b);
+  });
+  edit.appendChild(sel); box.appendChild(edit);
   if (errs.length){
     const d=el("div",{class:"status status-err"}, `${errs.length} réponse(s) obligatoire(s) manquante(s) ou incorrecte(s) :`);
     const ul=el("ul");
